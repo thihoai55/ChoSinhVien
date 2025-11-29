@@ -54,6 +54,9 @@ export function PostProvider({ children }) {
             createdAt: "Vừa xong",
             likedBy: [],
             savedBy: [],
+            // Giữ nguyên status từ post nếu có, nếu không thì không set status (undefined)
+            // Bài đăng "Cần mua" sẽ không có status, bài đăng "Cần bán" sẽ có status: 'pending'
+            status: post.status,
         };
         setPosts([newPost, ...posts]);
     };

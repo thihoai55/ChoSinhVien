@@ -7,12 +7,16 @@ import Register from "./components/Register";
 import Toast from "./components/Toast";
 import PostDetailPage from "./components/PostDetailPage";
 import { UserProfilePage } from "./components/UserProfilePage";
+import CreatePostPage from "./components/CreatePostPage";
+import RechargePage from "./components/RechargePage";
+import LichSuGiaoDichPage from "./components/LichSuGiaoDichPage";
 
 // 🧩 Import các Provider context
 import { AuthProvider } from "./contexts/AuthContext";
 import { PostProvider } from "./contexts/PostContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { ChatProvider } from "./contexts/ChatContext";
+import { WalletProvider } from "./contexts/WalletContext";
 
 function App() {
   // ✅ 1. Thay đổi state để lưu lịch sử
@@ -68,9 +72,10 @@ function App() {
   return (
     // Bọc toàn bộ App bằng các Provider
     <AuthProvider>
-      <ChatProvider>
-        <PostProvider>
-          <NotificationProvider>
+      <WalletProvider>
+        <ChatProvider>
+          <PostProvider>
+            <NotificationProvider>
         <div
           style={{
             display: "flex",
@@ -96,7 +101,10 @@ function App() {
               />
             )}
 
-           
+            {currentPage === "create-post" && (
+              <CreatePostPage onNavigate={onNavigate} />
+            )}
+
             {currentPage === "post-detail" && (
               <PostDetailPage postId={selectedPostId} onNavigate={onNavigate} onBack={onBack} />
             )}
@@ -114,6 +122,14 @@ function App() {
             {currentPage === "user-profile" && (
               <UserProfilePage userId={selectedUserId} onNavigate={onNavigate} onBack={onBack} />
             )}
+
+            {currentPage === "recharge" && (
+              <RechargePage onNavigate={onNavigate} onBack={onBack} />
+            )}
+
+            {currentPage === "transaction-history" && (
+              <LichSuGiaoDichPage onNavigate={onNavigate} onBack={onBack} />
+            )}
           </main>
 
           {toast && <Toast message={toast} onClose={() => setToast(null)} />}
@@ -123,6 +139,7 @@ function App() {
           </NotificationProvider>
         </PostProvider>
       </ChatProvider>
+      </WalletProvider>
     </AuthProvider>
   );
 }

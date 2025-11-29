@@ -5,7 +5,7 @@ export default function Footer() {
 
 	// --- STYLES ---
 	
-	const root = { background: 'linear-gradient(135deg, #f0f9ff, #e0f2fe)', color: '#1f2937', marginTop: 25, borderTop: '1px solid #dbeafe' }
+	const root = { background: 'linear-gradient(135deg, #f0f9ff, #e0f2fe)', color: '#1f2937', marginTop: 0, borderTop: '1px solid #dbeafe' }
 	const container = { maxWidth: 1120, margin: '0 auto', padding: '48px 16px 0 16px' }
 	const row = { display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 24 }
 	const divider = { borderTop: '1px solid #dbeafe', marginTop: 48, padding: "15px", textAlign: 'center', fontSize: 13, color: '#6b7280' }

@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useWallet } from '../contexts/WalletContext'
 
 export default function ProfileDropdown({ user, onNavigate }) {
     const { logout } = useAuth();
+    const { balance } = useWallet();
 
     // State riêng của component này
     const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -44,7 +46,6 @@ export default function ProfileDropdown({ user, onNavigate }) {
         borderRadius: '50%',
         objectFit: 'cover',
         marginRight: 8,
-        border: '2px solid #fff'
     };
     const avatarBtnHover = {
         ...avatarBtn,
@@ -114,7 +115,12 @@ export default function ProfileDropdown({ user, onNavigate }) {
                 onFocus={(e) => e.currentTarget.blur()}
             >
                 <img src={user.avatar} style={avatarImg} alt="avatar" />
-                <span style={{ fontWeight: 500, color: '#111827' }}>{user.name}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginRight: 8 }}>
+                    <span style={{ fontWeight: 500, color: '#111827', fontSize: 14 }}>{user.name}</span>
+                    <span style={{ fontWeight: 600, color: '#10b981', fontSize: 12 }}>
+                        {balance.toLocaleString('vi-VN')}đ
+                    </span>
+                </div>
                 <i 
                     className={`bi ${isDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'}`}
                     style={{ fontSize: 12, marginLeft: 8, color: '#6b7280', transition: 'transform 0.2s' }}
@@ -146,10 +152,32 @@ export default function ProfileDropdown({ user, onNavigate }) {
                     <span>Bài đăng của tôi</span>
                 </button>
 
+                {/* Link 3: Lịch sử giao dịch */}
+                <button
+                    style={hoveredLink === 'transactions' ? dropdownLinkHover : dropdownLink}
+                    onMouseEnter={() => setHoveredLink('transactions')}
+                    onMouseLeave={() => setHoveredLink(null)}
+                    onClick={() => handleNav('transaction-history')}
+                >
+                    <i className="bi bi-clock-history" style={{fontSize: 16, color: '#6b7280'}}></i>
+                    <span>Lịch sử giao dịch</span>
+                </button>
+
+                {/* Link 4: Nạp tiền */}
+                <button
+                    style={hoveredLink === 'recharge' ? dropdownLinkHover : dropdownLink}
+                    onMouseEnter={() => setHoveredLink('recharge')}
+                    onMouseLeave={() => setHoveredLink(null)}
+                    onClick={() => handleNav('recharge')}
+                >
+                    <i className="bi bi-wallet2" style={{fontSize: 16, color: '#6b7280'}}></i>
+                    <span>Nạp tiền</span>
+                </button>
+
                 {/* Đường kẻ ngang */}
                 <div style={dropdownDivider}></div>
                 
-                {/* Link 3: Đăng xuất */}
+                {/* Link 5: Đăng xuất */}
                 <button
                     style={hoveredLink === 'logout' ? dropdownLinkDangerHover : dropdownLinkDanger}
                     onMouseEnter={() => setHoveredLink('logout')}

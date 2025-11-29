@@ -7,6 +7,7 @@ import { useChat } from "../contexts/ChatContext";
 
 import Toast from "./Toast";
 import { usePostInteractions } from "./ReplyCmt";
+import { getTimeAgo } from "../utils/timeUtils";
 
 export default function PostDetailPage({ postId, onNavigate }) {
     const { posts = [], comments = {}, ...postActions } = usePosts?.() || {};
@@ -23,7 +24,9 @@ export default function PostDetailPage({ postId, onNavigate }) {
         ? posts
             .filter(
                 (p) =>
-                    p.authorId === post.authorId && String(p.id) !== String(postId)
+                    p.authorId === post.authorId && 
+                    String(p.id) !== String(postId) &&
+                    p.status !== 'pending' // Chỉ hiển thị bài đăng đã được duyệt
             )
             .slice(0, 4)
         : [];
@@ -79,7 +82,10 @@ export default function PostDetailPage({ postId, onNavigate }) {
     }, [post, setReplyingToCommentId]);
 
     useEffect(() => {
-        if (post?.image) {
+        // Ưu tiên lấy ảnh đầu tiên từ mảng images, nếu không có thì lấy image
+        if (post?.images && post.images.length > 0) {
+            setCurrentImage(post.images[0]);
+        } else if (post?.image) {
             setCurrentImage(post.image);
         }
     }, [post]);
@@ -112,6 +118,33 @@ export default function PostDetailPage({ postId, onNavigate }) {
     const authorAllPosts = posts.filter((p) => String(p.authorId) === String(post.authorId));
     const soldIndex = authorAllPosts.length > 0 ? Math.ceil(authorAllPosts.length * 0.7) : 0;
     const isSold = authorAllPosts.slice(soldIndex).some((p) => String(p.id) === String(post.id));
+    
+    // Kiểm tra nếu bài đăng đang chờ duyệt
+    const isPending = post?.status === 'pending';
+
+    // Kiểm tra nếu bài đăng đang chờ duyệt và user không phải chủ bài thì không cho xem
+    if (isPending && !isOwner) {
+        return (
+            <div style={{ textAlign: "center", padding: 40, background: '#f8fafc', minHeight: '100vh' }}>
+                <h3 style={{ marginBottom: 16 }}>Bài đăng này đang chờ duyệt và chỉ người đăng mới có thể xem chi tiết</h3>
+                <button
+                    onClick={() => onNavigate?.("home")}
+                    style={{
+                        padding: "10px 18px",
+                        background: "#2563eb",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 8,
+                        cursor: "pointer",
+                        fontSize: 16,
+                        display: 'inline-flex', alignItems: 'center', gap: 8
+                    }}
+                >
+                    <i className="bi bi-arrow-left" style={{ fontSize: 18 }}></i> Quay lại trang chủ
+                </button>
+            </div>
+        );
+    }
 
     if (isSold && !isOwner) {
         return (
@@ -321,7 +354,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                             }}
                         >
                             <img
-                                src={currentImage}
+                                src={currentImage || (post.images && post.images.length > 0 ? post.images[0] : post.image) || ""}
                                 alt={post.title}
                                 style={{
                                     width: "100%",
@@ -368,7 +401,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                             )}
                         </div>
 
-                        {/* Thư viện ảnh thu nhỏ (Giữ nguyên) */}
+                        {/* Thư viện ảnh thu nhỏ - Hiển thị nếu có nhiều hơn 1 ảnh */}
                         {post.images && post.images.length > 1 && (
                             <div
                                 style={{
@@ -419,7 +452,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                 whiteSpace: "pre-wrap",
                             }}
                         >
-                            {post.description}
+                            {post.content || post.description}
                         </p>
 
                         {/* Info (Giữ nguyên) */}
@@ -442,7 +475,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                     padding: "6px 10px",
                                 }}
                             >
-                                <Icon name="clock" /> {post.createdAt || "Vừa xong"}
+                                <Icon name="clock" /> {getTimeAgo(post.timestamp) || post.createdAt || "Vừa xong"}
                             </div>
                             <div
                                 style={{
@@ -468,7 +501,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                     padding: "6px 10px",
                                 }}
                             >
-                                <Icon name="geo-alt-fill" /> {post.address || "Đang cập nhật"}
+                                <Icon name="geo-alt-fill" /> {post.location || post.address || "Đang cập nhật"}
                             </div>
                         </div>
 
@@ -482,7 +515,8 @@ export default function PostDetailPage({ postId, onNavigate }) {
                             }}
                         >
                             <button
-                                onClick={() => handleLike(showToast)}
+                                onClick={() => !isPending && handleLike(showToast)}
+                                disabled={isPending}
                                 style={{
                                     display: "flex",
                                     alignItems: "center",
@@ -492,10 +526,11 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                     background: isLikedLocal ? colors.red : colors.grayBg,
                                     color: isLikedLocal ? "#fff" : colors.textDark,
                                     border: "none",
-                                    cursor: "pointer",
+                                    cursor: isPending ? "not-allowed" : "pointer",
+                                    opacity: isPending ? 0.6 : 1,
                                     ...baseTransition,
                                 }}
-                                onMouseEnter={(e) => setHoverEffect(e, "rgba(239, 68, 68, 0.2)")}
+                                onMouseEnter={(e) => !isPending && setHoverEffect(e, "rgba(239, 68, 68, 0.2)")}
                                 onMouseLeave={removeHoverEffect}
                             >
                                 <Icon
@@ -505,7 +540,8 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                 {post.likes}
                             </button>
                             <button
-                                onClick={() => handleSave(showToast)}
+                                onClick={() => !isPending && handleSave(showToast)}
+                                disabled={isPending}
                                 style={{
                                     display: "flex",
                                     alignItems: "center",
@@ -515,11 +551,12 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                     background: isSavedLocal ? colors.yellow : colors.grayBg,
                                     color: isSavedLocal ? "#422006" : colors.textDark,
                                     border: "none",
-                                    cursor: "pointer",
+                                    cursor: isPending ? "not-allowed" : "pointer",
+                                    opacity: isPending ? 0.6 : 1,
                                     ...baseTransition,
                                 }}
                                 onMouseEnter={(e) =>
-                                    setHoverEffect(e, "rgba(245, 158, 11, 0.2)")
+                                    !isPending && setHoverEffect(e, "rgba(245, 158, 11, 0.2)")
                                 }
                                 onMouseLeave={removeHoverEffect}
                             >
@@ -530,7 +567,8 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                 {isSavedLocal ? "Đã lưu" : "Lưu"}
                             </button>
                             <button
-                                onClick={handleShare}
+                                onClick={() => !isPending && handleShare()}
+                                disabled={isPending}
                                 style={{
                                     display: "flex",
                                     alignItems: "center",
@@ -540,11 +578,12 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                     background: colors.grayBg,
                                     color: colors.textDark,
                                     border: "none",
-                                    cursor: "pointer",
+                                    cursor: isPending ? "not-allowed" : "pointer",
+                                    opacity: isPending ? 0.6 : 1,
                                     ...baseTransition,
                                 }}
                                 onMouseEnter={(e) =>
-                                    setHoverEffect(e, "rgba(59, 130, 246, 0.2)")
+                                    !isPending && setHoverEffect(e, "rgba(59, 130, 246, 0.2)")
                                 }
                                 onMouseLeave={removeHoverEffect}
                             >
@@ -640,17 +679,23 @@ export default function PostDetailPage({ postId, onNavigate }) {
                             </div>
                         </div>
 
-                        {/* KHỐI BÌNH LUẬN (Giữ nguyên) */}
+                        {/* KHỐI BÌNH LUẬN - Hiển thị nhưng disable khi pending */}
                         <div
                             style={{
                                 background: "#fff",
                                 borderRadius: 12,
                                 padding: 16,
                                 boxShadow: cardShadow,
+                                opacity: isPending ? 0.7 : 1,
                             }}
                         >
                             <h3 style={{ margin: "0 0 16px", color: colors.textDark }}>
                                 <Icon name="chat-dots" /> Bình luận
+                                {isPending && (
+                                    <span style={{ fontSize: '13px', color: colors.textLight, fontWeight: 'normal', marginLeft: '8px' }}>
+                                        (Bài đăng đang chờ duyệt - không thể bình luận)
+                                    </span>
+                                )}
                             </h3>
                             <div
                                 style={{
@@ -687,16 +732,18 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                                     }}
                                                 >
                                                     <button
-                                                        onClick={() => handleLikeComment(c.id, showToast)}
+                                                        onClick={() => !isPending && handleLikeComment(c.id, showToast)}
+                                                        disabled={isPending}
                                                         style={{
                                                             background: "none",
                                                             border: "none",
-                                                            cursor: "pointer",
+                                                            cursor: isPending ? "not-allowed" : "pointer",
                                                             display: "flex",
                                                             alignItems: "center",
                                                             gap: 4,
                                                             color: isLiked ? colors.red : colors.textLight,
                                                             fontWeight: isLiked ? 600 : 400,
+                                                            opacity: isPending ? 0.6 : 1,
                                                             ...baseTransition,
                                                         }}
                                                     >
@@ -708,6 +755,10 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                                     </button>
                                                     <button
                                                         onClick={() => {
+                                                            if (isPending) {
+                                                                showToast("Bài đăng đang chờ duyệt - không thể trả lời!");
+                                                                return;
+                                                            }
                                                             if (isReplying) {
                                                                 setReplyingToCommentId(null);
                                                             } else {
@@ -715,10 +766,11 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                                                 setReplyContent("");
                                                             }
                                                         }}
+                                                        disabled={isPending}
                                                         style={{
                                                             background: "none",
                                                             border: "none",
-                                                            cursor: "pointer",
+                                                            cursor: isPending ? "not-allowed" : "pointer",
                                                             display: "flex",
                                                             alignItems: "center",
                                                             gap: 4,
@@ -726,6 +778,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                                                 ? colors.primary
                                                                 : colors.textLight,
                                                             fontWeight: isReplying ? 600 : 400,
+                                                            opacity: isPending ? 0.6 : 1,
                                                             ...baseTransition,
                                                         }}
                                                     >
@@ -754,13 +807,16 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                                     >
                                                         <textarea
                                                             value={replyContent}
-                                                            onChange={(e) => setReplyContent(e.target.value)}
-                                                            placeholder={`Trả lời ${c.author}...`}
+                                                            onChange={(e) => !isPending && setReplyContent(e.target.value)}
+                                                            placeholder={isPending ? "Bài đăng đang chờ duyệt - không thể trả lời" : `Trả lời ${c.author}...`}
                                                             rows={2}
-                                                            disabled={!isAuthenticated}
+                                                            disabled={!isAuthenticated || isPending}
                                                             onClick={() => {
-                                                                if (!isAuthenticated)
+                                                                if (isPending) {
+                                                                    showToast("Bài đăng đang chờ duyệt - không thể trả lời!");
+                                                                } else if (!isAuthenticated) {
                                                                     showToast("Vui lòng đăng nhập để trả lời!");
+                                                                }
                                                             }}
                                                             style={{
                                                                 flex: 1,
@@ -772,20 +828,20 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                                                 fontFamily: "inherit",
                                                                 padding: 4,
                                                                 minHeight: 38,
-                                                                cursor: isAuthenticated ? "text" : "not-allowed",
+                                                                cursor: (isAuthenticated && !isPending) ? "text" : "not-allowed",
                                                             }}
                                                             autoFocus
                                                         />
                                                         <button
                                                             onClick={() =>
-                                                                handleAddReply(c, showToast)
+                                                                !isPending && handleAddReply(c, showToast)
                                                             }
-                                                            disabled={!isAuthenticated}
+                                                            disabled={!isAuthenticated || isPending}
                                                             style={{
                                                                 flexShrink: 0,
                                                                 background: colors.primary,
                                                                 border: "none",
-                                                                cursor: isAuthenticated
+                                                                cursor: (isAuthenticated && !isPending)
                                                                     ? "pointer"
                                                                     : "not-allowed",
                                                                 color: "#fff",
@@ -793,7 +849,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                                                 height: 38,
                                                                 borderRadius: 8,
                                                                 ...baseTransition,
-                                                                opacity: isAuthenticated ? 1 : 0.5,
+                                                                opacity: (isAuthenticated && !isPending) ? 1 : 0.5,
                                                             }}
                                                         >
                                                             <Icon name="send" size={18} color="#fff" />
@@ -865,17 +921,22 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                 }}>
                                     <textarea
                                         value={commentContent}
-                                        onChange={(e) => setCommentContent(e.target.value)}
+                                        onChange={(e) => !isPending && setCommentContent(e.target.value)}
                                         placeholder={
-                                            isAuthenticated
+                                            isPending
+                                                ? "Bài đăng đang chờ duyệt - không thể bình luận"
+                                                : isAuthenticated
                                                 ? "Bình luận..."
                                                 : "Vui lòng đăng nhập để bình luận"
                                         }
                                         rows={1} // Bắt đầu bằng 1 dòng, nó sẽ tự dãn ra
-                                        disabled={!isAuthenticated}
+                                        disabled={!isAuthenticated || isPending}
                                         onClick={() => {
-                                            if (!isAuthenticated)
+                                            if (isPending) {
+                                                showToast("Bài đăng đang chờ duyệt - không thể bình luận!");
+                                            } else if (!isAuthenticated) {
                                                 showToast("Vui lòng đăng nhập để bình luận!");
+                                            }
                                         }}
                                         style={{
                                             flex: 1,
@@ -887,26 +948,26 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                             fontFamily: "inherit",
                                             padding: "8px 4px",
                                             minHeight: "auto",
-                                            cursor: isAuthenticated ? "text" : "not-allowed",
+                                            cursor: (isAuthenticated && !isPending) ? "text" : "not-allowed",
                                         }}
                                     />
                                 </div>
 
                                 {/* Nút gửi MÀU XANH (ICON), ở ngoài */}
                                 <button
-                                    onClick={handleAddComment}
-                                    disabled={!isAuthenticated}
+                                    onClick={() => !isPending && handleAddComment()}
+                                    disabled={!isAuthenticated || isPending}
                                     style={{
                                         flexShrink: 0,
                                         background: "transparent", // Nền trong suốt
                                         border: "none",
-                                        cursor: isAuthenticated ? "pointer" : "not-allowed",
+                                        cursor: (isAuthenticated && !isPending) ? "pointer" : "not-allowed",
                                         width: "auto",
                                         height: "auto",
                                         borderRadius: '50%',
                                         padding: 8, // Vùng bấm
                                         ...baseTransition,
-                                        opacity: isAuthenticated ? 1 : 0.5, // Mờ đi khi bị vô hiệu hóa
+                                        opacity: (isAuthenticated && !isPending) ? 1 : 0.5, // Mờ đi khi bị vô hiệu hóa
                                     }}
                                 >
                                     <Icon
@@ -920,7 +981,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                     </div>
                 </div>
 
-                {/* Khối "Bài viết khác của tác giả" (Giữ nguyên) */}
+                {/* Khối "Bài viết khác của tác giả" - Hiển thị các bài đăng của cùng tác giả */}
                 {authorPosts.length > 0 && (
                     <div
                         style={{

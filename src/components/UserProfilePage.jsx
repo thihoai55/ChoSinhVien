@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useNotifications } from "../contexts/NotificationContext";
 import { useChat } from "../contexts/ChatContext";
 import Toast from "./Toast";
+import { getTimeAgo } from "../utils/timeUtils";
 //import { mockUsers } from "../data/mockAuthor";
 import { mockUsers } from "../data/userData"; 
 
@@ -24,9 +25,13 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
     const isOwnProfile = user?.id === userId;
 
     const userPosts = posts.filter((p) => String(p.authorId) === String(userId));
-    const soldIndex = userPosts.length > 0 ? Math.ceil(userPosts.length * 0.7) : 0;
-    const activePosts = userPosts.slice(0, soldIndex);
-    const soldPosts = userPosts.slice(soldIndex);
+    // Lọc bài đăng đang chờ duyệt (chỉ hiển thị cho chủ tài khoản)
+    const pendingPosts = isOwnProfile ? userPosts.filter((p) => p.status === 'pending') : [];
+    // Lọc bài đăng đã được duyệt (status !== 'pending' hoặc không có status)
+    const approvedPosts = userPosts.filter((p) => !p.status || p.status !== 'pending');
+    const soldIndex = approvedPosts.length > 0 ? Math.ceil(approvedPosts.length * 0.7) : 0;
+    const activePosts = approvedPosts.slice(0, soldIndex);
+    const soldPosts = approvedPosts.slice(soldIndex);
 
     const showToast = (msg) => {
         setToastMessage(msg);
@@ -492,6 +497,14 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                         Bài đăng
                                     </h2>
                                     <div style={styles.tabsList}>
+                                        {isOwnProfile && (
+                                            <button
+                                                style={styles.tabsTrigger(activeTab === "pending")}
+                                                onClick={() => setActiveTab("pending")}
+                                            >
+                                                Đang chờ duyệt ({pendingPosts.length})
+                                            </button>
+                                        )}
                                         <button
                                             style={styles.tabsTrigger(activeTab === "active")}
                                             onClick={() => setActiveTab("active")}
@@ -507,6 +520,154 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                     </div>
                                 </div>
 
+                                {/* --- TABS CONTENT: PENDING (chỉ hiển thị khi là trang cá nhân của chính mình) --- */}
+                                {activeTab === 'pending' && isOwnProfile && (
+                                    <div>
+                                        {pendingPosts.length > 0 ? (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+                                                {pendingPosts.map((post) => (
+                                                    <div
+                                                        key={post.id}
+                                                        style={{
+                                                            ...styles.postCard,
+                                                        }}
+                                                        onClick={() => onNavigate("post-detail", post.id)}
+                                                        onMouseEnter={(e) => setHoverEffect(e)}
+                                                        onMouseLeave={(e) => removeHoverEffect(e)}
+                                                    >
+                                                        {/* Khối ảnh */}
+                                                        {(post.images && post.images.length > 0) || post.image ? (
+                                                            <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg }}>
+                                                                <img
+                                                                    src={post.images && post.images.length > 0 ? post.images[0] : post.image}
+                                                                    alt={post.title}
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', ...baseTransition, opacity: 0.8 }}
+                                                                />
+                                                                <div style={{
+                                                                    position: 'absolute',
+                                                                    top: 12,
+                                                                    right: 12,
+                                                                    background: colors.orange,
+                                                                    color: '#fff',
+                                                                    padding: '4px 8px',
+                                                                    borderRadius: 6,
+                                                                    fontSize: 13,
+                                                                    fontWeight: 500,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4
+                                                                }}>
+                                                                    <Icon name="clock-history" size={14} color="#fff" />
+                                                                    Chờ duyệt
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <Icon name="image" size={48} color="#cbd5e1" />
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {/* Khối nội dung */}
+                                                        <div style={{ padding: 16 }}>
+                                                            <h4 style={{
+                                                                margin: '0 0 2px',
+                                                                color: colors.textDark,
+                                                                fontWeight: 600,
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: 'vertical',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                minHeight: '2.5em'
+                                                            }}>
+                                                                {post.title}
+                                                            </h4>
+                                                            
+                                                            {/* Giá */}
+                                                            <div style={{
+                                                                color: colors.green,
+                                                                fontSize: 15,
+                                                                fontWeight: 700,
+                                                                margin: '0 0 8px 0'
+                                                            }}>
+                                                                {post.price || "Miễn phí"}
+                                                            </div>
+                                                            
+                                                            {/* Tác giả */}
+                                                            {post.author && (
+                                                                <div style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 6,
+                                                                    fontSize: 13,
+                                                                    color: colors.textLight,
+                                                                    marginBottom: 4
+                                                                }}>
+                                                                    {post.authorAvatar && (
+                                                                        <img 
+                                                                            src={post.authorAvatar} 
+                                                                            alt={post.author}
+                                                                            style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
+                                                                        />
+                                                                    )}
+                                                                    <span>{post.author}</span>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Thời gian */}
+                                                            <div style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                fontSize: 13,
+                                                                color: colors.textLight,
+                                                                marginBottom: 4
+                                                            }}>
+                                                                <Icon name="clock" size={14} />
+                                                                {getTimeAgo(post.timestamp) || post.createdAt || "Vừa xong"}
+                                                            </div>
+
+                                                            {/* Địa chỉ */}
+                                                            <div style={{
+                                                                display: 'flex',
+                                                                alignItems: 'flex-start',
+                                                                gap: 6,
+                                                                fontSize: 13,
+                                                                color: colors.textLight
+                                                            }}>
+                                                                <Icon name="geo-alt-fill" size={14} style={{ marginTop: 2 }}/>
+                                                                <span>{post.location || post.address || "Đang cập nhật"}</span>
+                                                            </div>
+
+                                                            {/* Danh mục */}
+                                                            {post.category && post.category !== 'Tất cả' && (
+                                                                <div style={{
+                                                                    display: 'inline-block',
+                                                                    marginTop: 8,
+                                                                    padding: '4px 8px',
+                                                                    background: '#eff6ff',
+                                                                    color: '#3b82f6',
+                                                                    borderRadius: 6,
+                                                                    fontSize: 12,
+                                                                    fontWeight: 500
+                                                                }}>
+                                                                    <Icon name="tag" size={12} color="#3b82f6" style={{ marginRight: 4 }} />
+                                                                    {post.category}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div style={{ textAlign: 'center', padding: '64px 0', color: colors.textLight }}>
+                                                <Icon name="hourglass-split" size={48} color="#cbd5e1" />
+                                                <p style={{ marginTop: 16, fontSize: 16 }}>Chưa có bài đăng nào đang chờ duyệt</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* --- TABS CONTENT: ACTIVE --- */}
                                 {activeTab === 'active' && (
                                     <div>
@@ -521,10 +682,10 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                         onMouseLeave={(e) => removeHoverEffect(e)}
                                                     >
                                                         {/* Khối ảnh */}
-                                                        {post.image && (
+                                                        {(post.images && post.images.length > 0) || post.image ? (
                                                             <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg }}>
                                                                 <img
-                                                                    src={post.image}
+                                                                    src={post.images && post.images.length > 0 ? post.images[0] : post.image}
                                                                     alt={post.title}
                                                                     style={{ width: '100%', height: '100%', objectFit: 'cover', ...baseTransition }}
                                                                 />
@@ -548,6 +709,10 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                     {post.likes}
                                                                 </div>
                                                                 {/* ✅ --- KẾT THÚC THAY ĐỔI --- */}
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <Icon name="image" size={48} color="#cbd5e1" />
                                                             </div>
                                                         )}
                                                         
@@ -576,6 +741,27 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                             }}>
                                                                 {post.price || "Miễn phí"}
                                                             </div>
+
+                                                            {/* Tác giả */}
+                                                            {post.author && (
+                                                                <div style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 6,
+                                                                    fontSize: 13,
+                                                                    color: colors.textLight,
+                                                                    marginBottom: 4
+                                                                }}>
+                                                                    {post.authorAvatar && (
+                                                                        <img 
+                                                                            src={post.authorAvatar} 
+                                                                            alt={post.author}
+                                                                            style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
+                                                                        />
+                                                                    )}
+                                                                    <span>{post.author}</span>
+                                                                </div>
+                                                            )}
                                                             
                                                             {/* Thời gian */}
                                                             <div style={{
@@ -587,7 +773,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                 marginBottom: 4 // Cách địa chỉ
                                                             }}>
                                                                 <Icon name="clock" size={14} />
-                                                                {post.createdAt || "Vừa xong"}
+                                                                {getTimeAgo(post.timestamp) || post.createdAt || "Vừa xong"}
                                                             </div>
 
                                                             {/* Địa chỉ */}
@@ -596,11 +782,29 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                 alignItems: 'flex-start', // Dùng flex-start để lỡ địa chỉ dài
                                                                 gap: 6,
                                                                 fontSize: 13,
-                                                                color: colors.textLight
+                                                                color: colors.textLight,
+                                                                marginBottom: post.category && post.category !== 'Tất cả' ? 4 : 0
                                                             }}>
                                                                 <Icon name="geo-alt-fill" size={14} style={{ marginTop: 2 }}/>
-                                                                <span>{post.address || "Việt Nam"}</span>
+                                                                <span>{post.location || post.address || "Đang cập nhật"}</span>
                                                             </div>
+
+                                                            {/* Danh mục */}
+                                                            {post.category && post.category !== 'Tất cả' && (
+                                                                <div style={{
+                                                                    display: 'inline-block',
+                                                                    marginTop: 8,
+                                                                    padding: '4px 8px',
+                                                                    background: '#eff6ff',
+                                                                    color: '#3b82f6',
+                                                                    borderRadius: 6,
+                                                                    fontSize: 12,
+                                                                    fontWeight: 500
+                                                                }}>
+                                                                    <Icon name="tag" size={12} color="#3b82f6" style={{ marginRight: 4 }} />
+                                                                    {post.category}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         {/* ✅ --- KẾT THÚC THAY ĐỔI --- */}
                                                     </div>
@@ -634,10 +838,10 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                         onMouseLeave={isOwnProfile ? removeHoverEffect : undefined}
                                                     >
                                                         {/* Khối ảnh */}
-                                                        {post.image && (
+                                                        {(post.images && post.images.length > 0) || post.image ? (
                                                             <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg }}>
                                                                 <img
-                                                                    src={post.image}
+                                                                    src={post.images && post.images.length > 0 ? post.images[0] : post.image}
                                                                     alt={post.title}
                                                                     style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(80%)' }}
                                                                 />
@@ -672,6 +876,10 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                     Đã bán
                                                                 </div>
                                                             </div>
+                                                        ) : (
+                                                            <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <Icon name="image" size={48} color="#cbd5e1" />
+                                                            </div>
                                                         )}
 
                                                         {/* ✅ --- THAY ĐỔI: Khối nội dung "văn bản đơn giản" (Đã bán, chỉ chủ bài có thể bấm xem chi tiết) --- */}
@@ -701,6 +909,27 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                 {post.price || "Miễn phí"}
                                                             </div>
 
+                                                            {/* Tác giả */}
+                                                            {post.author && (
+                                                                <div style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 6,
+                                                                    fontSize: 13,
+                                                                    color: '#cbd5e1',
+                                                                    marginBottom: 4
+                                                                }}>
+                                                                    {post.authorAvatar && (
+                                                                        <img 
+                                                                            src={post.authorAvatar} 
+                                                                            alt={post.author}
+                                                                            style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
+                                                                        />
+                                                                    )}
+                                                                    <span>{post.author}</span>
+                                                                </div>
+                                                            )}
+
                                                             {/* Thời gian (mờ) */}
                                                             <div style={{
                                                                 display: 'flex',
@@ -711,7 +940,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                 marginBottom: 4
                                                             }}>
                                                                 <Icon name="clock" size={14} color="#cbd5e1" />
-                                                                {post.createdAt || "Vừa xong"}
+                                                                {getTimeAgo(post.timestamp) || post.createdAt || "Vừa xong"}
                                                             </div>
 
                                                             {/* Địa chỉ (mờ) */}
@@ -720,11 +949,29 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                 alignItems: 'flex-start',
                                                                 gap: 6,
                                                                 fontSize: 13,
-                                                                color: '#cbd5e1'
+                                                                color: '#cbd5e1',
+                                                                marginBottom: post.category && post.category !== 'Tất cả' ? 4 : 0
                                                             }}>
                                                                 <Icon name="geo-alt-fill" size={14} color="#cbd5e1" style={{ marginTop: 2 }}/>
-                                                                <span>{post.address || "Việt Nam"}</span>
+                                                                <span>{post.location || post.address || "Đang cập nhật"}</span>
                                                             </div>
+
+                                                            {/* Danh mục */}
+                                                            {post.category && post.category !== 'Tất cả' && (
+                                                                <div style={{
+                                                                    display: 'inline-block',
+                                                                    marginTop: 8,
+                                                                    padding: '4px 8px',
+                                                                    background: '#f3f4f6',
+                                                                    color: '#6b7280',
+                                                                    borderRadius: 6,
+                                                                    fontSize: 12,
+                                                                    fontWeight: 500
+                                                                }}>
+                                                                    <Icon name="tag" size={12} color="#6b7280" style={{ marginRight: 4 }} />
+                                                                    {post.category}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         {/* ✅ --- KẾT THÚC THAY ĐỔI --- */}
                                                     </div>

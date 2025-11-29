@@ -41,8 +41,8 @@ export default function Header({ onNavigate, onSearch, showToast }) {
   const [showSaved, setShowSaved] = useState(false)
 
   // --- STYLES (Giữ nguyên) ---
-  const header = { position: 'sticky', top: 0, zIndex: 50, background: '#fff', borderBottom: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,.04)' }
-  const container = { maxWidth: 1200, margin: '0 auto', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }
+  const header = { position: 'sticky', top: 0, zIndex: 50, background: '#fff', borderBottom: '1px solid #e5e7eb', boxShadow: '0 1px 2px rgba(0,0,0,.04)', lineHeight: '1.2' }
+  const container = { maxWidth: 1200, margin: '0 auto', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, minHeight: '56px' }
   const brand = { display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', color: '#2563eb', textDecoration: 'none', fontWeight: 700, transition: 'all 0.2s ease', outline: 'none' }
   const actions = { display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }
   const buttonGhost = { background: 'transparent', border: '1px solid #e5e7eb', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'all 0.2s ease', outline: 'none' }
@@ -159,8 +159,8 @@ export default function Header({ onNavigate, onSearch, showToast }) {
           onMouseDown={(e) => e.preventDefault()}
           onFocus={(e) => e.currentTarget.blur()}
         >
-          <i className="bi bi-book" style={{ fontSize: 25 }} />
-          <span>Sàn Trao Đổi SV</span>
+          <i className="bi bi-book" style={{ fontSize: 22 }} />
+          <span style={{ fontSize: '16px' }}>Sàn Trao Đổi SV</span>
         </a>
 
         <div style={searchWrap}>
