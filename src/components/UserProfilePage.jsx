@@ -3,20 +3,22 @@ import { usePosts } from "../contexts/PostContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useNotifications } from "../contexts/NotificationContext";
 import { useChat } from "../contexts/ChatContext";
+import { useFollow } from "../contexts/FollowContext";
 import Toast from "./Toast";
 import { getTimeAgo } from "../utils/timeUtils";
 import DeletePostModal from "./DeletePostModal";
 import HidePostModal from "./HidePostModal";
+import FollowListModal from "./FollowListModal";
 //import { mockUsers } from "../data/mockAuthor";
 import { mockUsers } from "../data/userData"; 
 
 export function UserProfilePage({ userId, onNavigate, onBack }) {
-    const { posts = [], deletePost, hidePost, updatePost } = usePosts?.() || {};
+    const { posts = [], deletePost, hidePost, updatePost, markAsSold } = usePosts?.() || {};
     const { isAuthenticated = false, user = null } = useAuth?.() || {};
     const { addNotification } = useNotifications();
     const { openChatWith } = useChat?.() || {};
+    const { isFollowing: checkIsFollowing, toggleFollow, getFollowersCount, getFollowingCount } = useFollow();
 
-    const [isFollowing, setIsFollowing] = useState(false);
     const [activeTab, setActiveTab] = useState("active");
     const [toastMessage, setToastMessage] = useState(null);
     const [showMenu, setShowMenu] = useState(false);
@@ -28,9 +30,16 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
     const [postToDelete, setPostToDelete] = useState(null);
     const [showHideModal, setShowHideModal] = useState(false);
     const [postToHide, setPostToHide] = useState(null);
+    const [showFollowListModal, setShowFollowListModal] = useState(false);
+    const [followListType, setFollowListType] = useState(null); // 'followers' or 'following'
 
     const profile = mockUsers.find(u => String(u.id) === String(userId)) || mockUsers[0];
     const isOwnProfile = user?.id === userId;
+    const isFollowing = user ? checkIsFollowing(user.id, userId) : false;
+    
+    // Lấy số lượng followers và following từ FollowContext
+    const followersCount = getFollowersCount(userId);
+    const followingCount = getFollowingCount(userId);
 
     const userPosts = posts.filter((p) => String(p.authorId) === String(userId));
     
@@ -74,23 +83,29 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
     
     // Lọc bài đăng đang chờ duyệt (chỉ hiển thị cho chủ tài khoản)
     const pendingPosts = isOwnProfile ? userPosts.filter((p) => p.status === 'pending' && !p.hidden) : [];
-    // Lọc bài đăng đã ẩn (chỉ hiển thị cho chủ tài khoản, loại trừ những bài đã ẩn quá 7 ngày)
+    // Lọc bài đăng đã ẩn (chỉ hiển thị cho chủ tài khoản)
+    // Bao gồm: bài đăng bị từ chối (status: 'rejected' và hidden: true) và bài đăng user tự ẩn
     const hiddenPosts = isOwnProfile ? userPosts.filter((p) => {
-        if (!p.hidden) return false;
-        if (p.hiddenTimestamp) {
-            const hiddenDate = new Date(p.hiddenTimestamp);
-            const now = new Date();
-            const diffTime = now - hiddenDate;
-            const diffDays = diffTime / (1000 * 60 * 60 * 24);
-            return diffDays < 7; // Chỉ hiển thị những bài chưa quá 7 ngày
+        // Hiển thị bài đăng bị từ chối (admin từ chối)
+        if (p.status === 'rejected' && p.hidden) return true;
+        // Hiển thị bài đăng user tự ẩn (chưa quá 7 ngày)
+        if (p.hidden && p.status !== 'rejected') {
+            if (p.hiddenTimestamp) {
+                const hiddenDate = new Date(p.hiddenTimestamp);
+                const now = new Date();
+                const diffTime = now - hiddenDate;
+                const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                return diffDays < 7; // Chỉ hiển thị những bài chưa quá 7 ngày
+            }
+            return true; // Nếu không có hiddenTimestamp, vẫn hiển thị (tương thích với bài đăng cũ)
         }
-        return true; // Nếu không có hiddenTimestamp, vẫn hiển thị (tương thích với bài đăng cũ)
+        return false;
     }) : [];
     // Lọc bài đăng đã được duyệt và chưa bị ẩn (status !== 'pending' hoặc không có status, và không bị ẩn)
     const approvedPosts = userPosts.filter((p) => (!p.status || p.status !== 'pending') && !p.hidden);
-    const soldIndex = approvedPosts.length > 0 ? Math.ceil(approvedPosts.length * 0.7) : 0;
-    const activePosts = approvedPosts.slice(0, soldIndex);
-    const soldPosts = approvedPosts.slice(soldIndex);
+    // Phân loại dựa trên trường sold thay vì vị trí
+    const activePosts = approvedPosts.filter((p) => !p.sold);
+    const soldPosts = approvedPosts.filter((p) => p.sold);
 
     const showToast = (msg) => {
         setToastMessage(msg);
@@ -101,12 +116,14 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
             showToast("Vui lòng đăng nhập để theo dõi");
             return;
         }
+        if (!user || !profile?.id) return;
+        
         const nextFollowing = !isFollowing;
-        setIsFollowing(nextFollowing);
+        toggleFollow(user.id, profile.id);
 
         if (nextFollowing) {
             // Bắt đầu theo dõi: gửi thông báo cho chủ hồ sơ
-            if (profile?.id && user?.id && profile.id !== user.id) {
+            if (profile.id !== user.id) {
                 addNotification(profile.id, {
                     type: "follow",
                     fromUserId: user.id,
@@ -118,6 +135,16 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
             // Bỏ theo dõi: chỉ hiện toast, không cần thông báo
             showToast("Đã bỏ theo dõi");
         }
+    };
+
+    const handleShowFollowers = () => {
+        setFollowListType('followers');
+        setShowFollowListModal(true);
+    };
+
+    const handleShowFollowing = () => {
+        setFollowListType('following');
+        setShowFollowListModal(true);
     };
 
     const handleMessage = () => {
@@ -221,6 +248,18 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
             showToast("Đã xóa bài đăng!");
             setShowDeleteModal(false);
             setPostToDelete(null);
+        }
+    };
+
+    const handleMarkAsSold = (postId) => {
+        if (!isOwnProfile) {
+            showToast("Chỉ chủ bài đăng mới có thể đánh dấu đã bán!");
+            return;
+        }
+        if (markAsSold) {
+            markAsSold(postId);
+            showToast("Đã đánh dấu bài đăng là đã bán");
+            setOpenPostMenuId(null);
         }
     };
 
@@ -493,14 +532,44 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
 
                             {/* Followers Stats */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 16, fontSize: 14 }}>
-                                <div style={{ textAlign: 'center' }}>
+                                <div 
+                                    style={{ 
+                                        textAlign: 'center', 
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                    onClick={handleShowFollowers}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                        e.currentTarget.style.color = colors.primary;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.color = 'inherit';
+                                    }}
+                                >
                                     <span style={{ color: colors.textLight }}>Người theo dõi: </span>
-                                    <span style={{ fontWeight: 600, color: colors.textDark }}>{profile.followers}</span>
+                                    <span style={{ fontWeight: 600, color: colors.textDark }}>{followersCount}</span>
                                 </div>
                                 <div style={{ height: 16, width: 1, background: colors.border }}></div>
-                                <div style={{ textAlign: 'center' }}>
+                                <div 
+                                    style={{ 
+                                        textAlign: 'center',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                    }}
+                                    onClick={handleShowFollowing}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                        e.currentTarget.style.color = colors.primary;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.color = 'inherit';
+                                    }}
+                                >
                                     <span style={{ color: colors.textLight }}>Đang theo dõi: </span>
-                                    <span style={{ fontWeight: 600, color: colors.textDark }}>{profile.following}</span>
+                                    <span style={{ fontWeight: 600, color: colors.textDark }}>{followingCount}</span>
                                 </div>
                             </div>
 
@@ -1069,6 +1138,31 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
+                                                                                handleMarkAsSold(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.green || "#059669",
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = "#d1fae5")}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="check-circle" size={14} color={colors.green || "#059669"} />
+                                                                            Đánh dấu đã bán
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
                                                                                 handleDeletePost(post.id);
                                                                             }}
                                                                             style={{
@@ -1315,6 +1409,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                             padding: "4px 0",
                                                                         }}
                                                                     >
+                                                                        {/* Bài đăng đã bán chỉ có thể ẩn và xóa */}
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
@@ -1339,31 +1434,6 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                         >
                                                                             <Icon name="eye-slash" size={14} color={colors.textLight} />
                                                                             Ẩn bài đăng
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleEditPost(post.id);
-                                                                            }}
-                                                                            style={{
-                                                                                width: "100%",
-                                                                                padding: "8px 12px",
-                                                                                border: "none",
-                                                                                background: "transparent",
-                                                                                textAlign: "left",
-                                                                                cursor: "pointer",
-                                                                                display: "flex",
-                                                                                alignItems: "center",
-                                                                                gap: 8,
-                                                                                color: colors.textDark,
-                                                                                fontSize: 13,
-                                                                                ...baseTransition,
-                                                                            }}
-                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = colors.grayBg)}
-                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                                                                        >
-                                                                            <Icon name="pencil" size={14} color={colors.primary} />
-                                                                            Sửa bài đăng
                                                                         </button>
                                                                         <button
                                                                             onClick={(e) => {
@@ -1792,6 +1862,17 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                 onConfirm={confirmHidePost}
                 postTitle={postToHide?.title}
             />
+            {showFollowListModal && (
+                <FollowListModal
+                    userId={userId}
+                    type={followListType}
+                    onClose={() => {
+                        setShowFollowListModal(false);
+                        setFollowListType(null);
+                    }}
+                    onNavigate={onNavigate}
+                />
+            )}
         </div>
     );
 }

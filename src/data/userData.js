@@ -202,6 +202,27 @@ export const mockUsers = [
       verified: true,
       verifiedPlatforms: ["email"],
     },
+    {
+      // --- Tài khoản Admin ---
+      id: 'admin1',
+      name: 'Admin',
+      email: 'admin@chosinhvien.com',
+      password: 'admin123',
+      avatar: 'https://i.pravatar.cc/150?img=1',
+      // --- Profile ---
+      phone: '0123456789',
+      bio: "Quản trị viên hệ thống",
+      location: "Hà Nội",
+      joinedDate: "1 năm trước",
+      responseTime: { rate: 100, label: "Luôn phản hồi" },
+      followers: 0,
+      following: 0,
+      rating: 5.0,
+      totalReviews: 0,
+      verified: true,
+      verifiedPlatforms: ["email"],
+      role: 'admin', // Đánh dấu đây là tài khoản admin
+    },
   ];
   
   

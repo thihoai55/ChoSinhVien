@@ -2,17 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { mockPosts, mockCommentsByPostId } from '../data/mock'
 // --- SỬA 1: Import hook useAuth ---
 import { useAuth } from '../contexts/AuthContext'
+import { usePosts } from '../contexts/PostContext'
 
 // --- SỬA 2: Xóa prop "user" ---
 export default function PublicHomePage({ searchQuery = '', onNavigate, showToast }) {
 	// --- SỬA 3: Lấy "user" từ context ---
 	const { user } = useAuth();
+	const { posts } = usePosts();
 	
 	const [selectedPost, setSelectedPost] = useState(null)
 	const [selectedCategory, setSelectedCategory] = useState(null)
 	const [sortType, setSortType] = useState('newest')
 
-	// ... (Toàn bộ logic lọc, style, v.v. của bạn giữ nguyên) ...
 	const categories = [
 		{ name: 'Tất cả', icon: 'bi-collection' },
 		{ name: 'Sách & Tài liệu', icon: 'bi-book' },
@@ -28,12 +29,27 @@ export default function PublicHomePage({ searchQuery = '', onNavigate, showToast
 		{ name: 'Khác', icon: 'bi-box' },
 	]
 	const filtered = useMemo(() => {
-		let processedPosts = [...mockPosts]
+		// Lọc bài đăng: chỉ hiển thị bài đã được duyệt (approved hoặc không có status) và không bị ẩn
+		let processedPosts = posts.filter((p) => {
+			// Chỉ hiển thị bài đăng đã được duyệt và không bị ẩn
+			const isApproved = p.status === 'approved' || (!p.status && p.status !== 'pending' && p.status !== 'rejected');
+			const isNotHidden = !p.hidden;
+			return isApproved && isNotHidden;
+		});
+		
 		if (sortType === 'popular') {
-			processedPosts.sort((a, b) => b.likes - a.likes)
+			processedPosts.sort((a, b) => (b.likes || 0) - (a.likes || 0))
+		} else {
+			// Sắp xếp theo mới nhất
+			processedPosts.sort((a, b) => {
+				const timeA = a.timestamp || a.createdAt || '';
+				const timeB = b.timestamp || b.createdAt || '';
+				return new Date(timeB) - new Date(timeA);
+			});
 		}
+		
 		return processedPosts.filter((p) => {
-			const matchSearch = (p.title + ' ' + p.content)
+			const matchSearch = (p.title + ' ' + (p.content || p.description || ''))
 				.toLowerCase()
 				.includes(searchQuery.toLowerCase())
 			const matchCat =
@@ -42,7 +58,7 @@ export default function PublicHomePage({ searchQuery = '', onNavigate, showToast
 				p.category === selectedCategory
 			return matchSearch && matchCat
 		})
-	}, [searchQuery, selectedCategory, sortType])
+	}, [searchQuery, selectedCategory, sortType, posts])
 	const pageSize = 9
 	const [currentPage, setCurrentPage] = useState(1)
 	const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))

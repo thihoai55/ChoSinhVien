@@ -174,6 +174,22 @@ export default function ProfileDropdown({ user, onNavigate }) {
                     <span>Nạp tiền</span>
                 </button>
 
+                {/* Link Admin (chỉ hiển thị cho admin) */}
+                {user.role === 'admin' && (
+                    <>
+                        <div style={dropdownDivider}></div>
+                        <button
+                            style={hoveredLink === 'admin' ? { ...dropdownLinkHover, color: '#10b981' } : { ...dropdownLink, color: '#10b981' }}
+                            onMouseEnter={() => setHoveredLink('admin')}
+                            onMouseLeave={() => setHoveredLink(null)}
+                            onClick={() => handleNav('admin')}
+                        >
+                            <i className="bi bi-shield-check" style={{fontSize: 16, color: '#10b981'}}></i>
+                            <span>Trang quản trị</span>
+                        </button>
+                    </>
+                )}
+
                 {/* Đường kẻ ngang */}
                 <div style={dropdownDivider}></div>
                 

@@ -306,6 +306,18 @@ export default function Header({ onNavigate, onSearch, showToast }) {
           {/* (Logic User/Login giữ nguyên) */}
           {user ? (
             <>
+              {user.role === 'admin' && (
+                <button
+                  style={hovered === 'admin' ? { ...buttonPrimary, ...buttonPrimaryHover, background: '#10b981' } : { ...buttonPrimary, background: '#10b981' }}
+                  onClick={() => onNavigate('admin')}
+                  onMouseEnter={() => setHovered('admin')}
+                  onMouseLeave={() => setHovered(null)}
+                  title="Trang quản trị"
+                >
+                  <i className="bi bi-shield-check" style={{ fontSize: 16 }} />
+                  <span>Admin</span>
+                </button>
+              )}
               <button
                 style={hovered === 'create' ? { ...buttonPrimary, ...buttonPrimaryHover } : buttonPrimary}
                 onClick={() => onNavigate('create-post')}

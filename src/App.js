@@ -11,6 +11,8 @@ import CreatePostPage from "./components/CreatePostPage";
 import EditPostPage from "./components/EditPostPage";
 import RechargePage from "./components/RechargePage";
 import LichSuGiaoDichPage from "./components/LichSuGiaoDichPage";
+import PostNotificationHandler from "./components/PostNotificationHandler";
+import AdminLayout from "./components/AdminLayout";
 
 // 🧩 Import các Provider context
 import { AuthProvider } from "./contexts/AuthContext";
@@ -18,6 +20,7 @@ import { PostProvider } from "./contexts/PostContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { ChatProvider } from "./contexts/ChatContext";
 import { WalletProvider } from "./contexts/WalletContext";
+import { FollowProvider } from "./contexts/FollowContext";
 
 function App() {
   // ✅ 1. Thay đổi state để lưu lịch sử
@@ -88,8 +91,10 @@ function App() {
     <AuthProvider>
       <WalletProvider>
         <ChatProvider>
-          <PostProvider>
-            <NotificationProvider>
+          <FollowProvider>
+            <PostProvider>
+              <NotificationProvider>
+                <PostNotificationHandler />
         <div
           style={{
             display: "flex",
@@ -97,65 +102,73 @@ function App() {
             minHeight: "100vh",
           }}
         >
-          {currentPage !== "login" && currentPage !== "register" && (
-            <Header
-              onNavigate={onNavigate}
-              showSearch={currentPage === "home"}
-              onSearch={setSearchQuery}
-              showToast={showToast}
-            />
+          {/* Render AdminLayout riêng biệt nếu là trang admin */}
+          {currentPage === "admin" ? (
+            <AdminLayout onNavigate={onNavigate} />
+          ) : (
+            <>
+              {currentPage !== "login" && currentPage !== "register" && (
+                <Header
+                  onNavigate={onNavigate}
+                  showSearch={currentPage === "home"}
+                  onSearch={setSearchQuery}
+                  showToast={showToast}
+                />
+              )}
+
+              <main style={{ flex: 1 }}>
+                {currentPage === "home" && (
+                  <PublicHomePage
+                    onNavigate={onNavigate}
+                    searchQuery={searchQuery}
+                    showToast={showToast}
+                  />
+                )}
+
+                {currentPage === "create-post" && (
+                  <CreatePostPage onNavigate={onNavigate} hiddenPostData={hiddenPostData} />
+                )}
+
+                {currentPage === "edit-post" && (
+                  <EditPostPage postId={editPostId} onNavigate={onNavigate} />
+                )}
+
+                {currentPage === "post-detail" && (
+                  <PostDetailPage postId={selectedPostId} onNavigate={onNavigate} onBack={onBack} />
+                )}
+
+                {currentPage === "login" && (
+                  <Login 
+                    onNavigate={onNavigate} 
+                  />
+                )}
+
+                {currentPage === "register" && (
+                  <Register onNavigate={onNavigate} />
+                )}
+
+                {currentPage === "user-profile" && (
+                  <UserProfilePage userId={selectedUserId} onNavigate={onNavigate} onBack={onBack} />
+                )}
+
+                {currentPage === "recharge" && (
+                  <RechargePage onNavigate={onNavigate} onBack={onBack} />
+                )}
+
+                {currentPage === "transaction-history" && (
+                  <LichSuGiaoDichPage onNavigate={onNavigate} onBack={onBack} />
+                )}
+              </main>
+
+              {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+
+              {currentPage !== "login" && currentPage !== "register" && <Footer />}
+            </>
           )}
-
-          <main style={{ flex: 1 }}>
-            {currentPage === "home" && (
-              <PublicHomePage
-                onNavigate={onNavigate}
-                searchQuery={searchQuery}
-                showToast={showToast}
-              />
-            )}
-
-            {currentPage === "create-post" && (
-              <CreatePostPage onNavigate={onNavigate} hiddenPostData={hiddenPostData} />
-            )}
-
-            {currentPage === "edit-post" && (
-              <EditPostPage postId={editPostId} onNavigate={onNavigate} />
-            )}
-
-            {currentPage === "post-detail" && (
-              <PostDetailPage postId={selectedPostId} onNavigate={onNavigate} onBack={onBack} />
-            )}
-
-            {currentPage === "login" && (
-              <Login 
-                onNavigate={onNavigate} 
-              />
-            )}
-
-            {currentPage === "register" && (
-              <Register onNavigate={onNavigate} />
-            )}
-
-            {currentPage === "user-profile" && (
-              <UserProfilePage userId={selectedUserId} onNavigate={onNavigate} onBack={onBack} />
-            )}
-
-            {currentPage === "recharge" && (
-              <RechargePage onNavigate={onNavigate} onBack={onBack} />
-            )}
-
-            {currentPage === "transaction-history" && (
-              <LichSuGiaoDichPage onNavigate={onNavigate} onBack={onBack} />
-            )}
-          </main>
-
-          {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-
-          {currentPage !== "login" && currentPage !== "register" && <Footer />}
         </div>
-          </NotificationProvider>
-        </PostProvider>
+              </NotificationProvider>
+            </PostProvider>
+          </FollowProvider>
       </ChatProvider>
       </WalletProvider>
     </AuthProvider>

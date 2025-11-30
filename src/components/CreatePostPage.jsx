@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePosts } from '../contexts/PostContext'
 import { useWallet } from '../contexts/WalletContext'
+import { useNotifications } from '../contexts/NotificationContext'
+import { mockUsers } from '../data/userData'
 import { ArrowLeft } from 'react-bootstrap-icons'
 import CreatePostForm from './CreatePostForm'
 import PaymentModal from './PaymentModal'
@@ -26,6 +28,7 @@ export default function CreatePostPage({ onNavigate, hiddenPostData }) {
   const { user } = useAuth()
   const { addPost, deletePost } = usePosts?.() || {}
   const { balance, pay } = useWallet()
+  const { addNotification } = useNotifications()
 
   // Xác định postType từ hiddenPostData hoặc mặc định
   const getPostType = () => {
@@ -167,7 +170,7 @@ export default function CreatePostPage({ onNavigate, hiddenPostData }) {
       }
 
       if (addPost && user) {
-        await addPost({
+        const newPost = {
           title: title.trim(),
           content: content.trim(),
           category: selectedCategory,
@@ -184,7 +187,20 @@ export default function CreatePostPage({ onNavigate, hiddenPostData }) {
           authorId: user.id, // Thêm authorId để bài đăng hiển thị trong trang cá nhân
           author: user.name, // Thêm tên tác giả
           authorAvatar: user.avatar, // Thêm avatar tác giả
-        });
+        };
+        
+        const createdPost = await addPost(newPost);
+
+        // Gửi thông báo cho admin khi có bài đăng mới
+        const admin = mockUsers.find(u => u.role === 'admin');
+        if (admin && addNotification) {
+          addNotification(admin.id, {
+            type: 'new_pending_post',
+            postId: createdPost.id,
+            fromUserId: user.id,
+            message: `Có bài đăng mới cần duyệt: "${newPost.title}" từ ${user.name}`,
+          });
+        }
 
         // Nếu đăng lại từ bài đăng đã ẩn, xóa bài đăng cũ
         if (hiddenPostData?.id) {

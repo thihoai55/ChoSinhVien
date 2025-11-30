@@ -34,11 +34,15 @@ export default function Login({ onNavigate }) {
 
         try {
             // Gọi hàm login từ AuthContext
-            await login(email, password);
+            const loggedInUser = await login(email, password);
             
-            // Nếu thành công, chỉ cần điều hướng
-            // AuthContext sẽ tự động cập nhật user cho toàn bộ App
-            onNavigate("home");
+            // Nếu thành công, kiểm tra role để điều hướng
+            // Nếu là admin thì chuyển thẳng đến trang admin, không có trang chủ
+            if (loggedInUser && loggedInUser.role === 'admin') {
+                onNavigate("admin");
+            } else {
+                onNavigate("home");
+            }
 
         } catch (err) {
             // Nếu thất bại (vd: sai pass), AuthContext sẽ ném lỗi

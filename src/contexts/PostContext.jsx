@@ -59,6 +59,7 @@ export function PostProvider({ children }) {
             status: post.status,
         };
         setPosts([newPost, ...posts]);
+        return newPost; // Trả về post đã tạo để có thể lấy id
     };
 
     const addComment = (postId, content, userId, userName, userAvatar) => {
@@ -157,6 +158,80 @@ export function PostProvider({ children }) {
         );
     };
 
+    const markAsSold = (postId) => {
+        setPosts(
+            posts.map((p) =>
+                String(p.id) === String(postId) 
+                    ? { ...p, sold: true, soldTimestamp: new Date().toISOString() } 
+                    : p
+            )
+        );
+    };
+
+    // Hàm duyệt bài đăng (chỉ dành cho admin)
+    // Khi duyệt: bài đăng chuyển sang tab "Đang bán" trong giao diện user
+    const approvePost = (postId) => {
+        setPosts(
+            posts.map((p) =>
+                String(p.id) === String(postId) 
+                    ? { 
+                        ...p, 
+                        status: 'approved', 
+                        approvedAt: new Date().toISOString(),
+                        // Không set sold: true, để bài đăng vào tab "Đang bán" (activePosts)
+                    } 
+                    : p
+            )
+        );
+    };
+
+    // Hàm từ chối bài đăng (chỉ dành cho admin)
+    // Khi từ chối: bài đăng chuyển vào tab "đã ẩn" và không hiển thị trong danh sách
+    const rejectPost = (postId, reason = '') => {
+        setPosts(
+            posts.map((p) =>
+                String(p.id) === String(postId) 
+                    ? { 
+                        ...p, 
+                        status: 'rejected', 
+                        rejectedAt: new Date().toISOString(), 
+                        rejectionReason: reason,
+                        hidden: true, // Chuyển vào tab "đã ẩn"
+                        hiddenTimestamp: new Date().toISOString()
+                    } 
+                    : p
+            )
+        );
+    };
+
+    // Tự động xóa bài đăng đã bán sau 2 ngày
+    useEffect(() => {
+        const now = new Date();
+        const postsToDelete = [];
+        
+        posts.forEach((post) => {
+            if (post.sold && post.soldTimestamp) {
+                const soldDate = new Date(post.soldTimestamp);
+                const diffTime = now - soldDate;
+                const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                
+                if (diffDays >= 2) {
+                    postsToDelete.push(post.id);
+                }
+            }
+        });
+        
+        if (postsToDelete.length > 0) {
+            setPosts(posts.filter((p) => !postsToDelete.includes(p.id)));
+            // Xóa comments của các bài đăng đã xóa
+            const newComments = { ...comments };
+            postsToDelete.forEach((postId) => {
+                delete newComments[postId];
+            });
+            setComments(newComments);
+        }
+    }, [posts, comments]);
+
     return (
         // --- SỬA LỖI NGHIÊM TRỌNG: Phải là PostContext.Provider ---
         <PostContext.Provider
@@ -173,6 +248,9 @@ export function PostProvider({ children }) {
                 updatePost,
                 deletePost,
                 hidePost,
+                markAsSold,
+                approvePost,
+                rejectPost,
             }}
         >
             {children}

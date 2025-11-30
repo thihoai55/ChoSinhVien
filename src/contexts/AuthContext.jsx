@@ -29,6 +29,9 @@ export function AuthProvider({ children }) {
                 );
             } catch {}
 
+            // Trả về user để component có thể sử dụng
+            return loggedInUser;
+
         } else {
             // Nếu thất bại, ném ra lỗi để UI có thể bắt
             throw new Error("Email hoặc mật khẩu không đúng");
