@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePosts } from '../contexts/PostContext'
 import { useWallet } from '../contexts/WalletContext'
@@ -22,32 +22,80 @@ const categories = [
   'Khác'
 ]
 
-export default function CreatePostPage({ onNavigate }) {
+export default function CreatePostPage({ onNavigate, hiddenPostData }) {
   const { user } = useAuth()
-  const { addPost } = usePosts?.() || {}
+  const { addPost, deletePost } = usePosts?.() || {}
   const { balance, pay } = useWallet()
 
-  // Loại bài đăng: người dùng có thể đăng tin cần mua hoặc cần bán
-  const [postType, setPostType] = useState('buy') // 'buy' | 'sell'
+  // Xác định postType từ hiddenPostData hoặc mặc định
+  const getPostType = () => {
+    if (hiddenPostData?.type) return hiddenPostData.type
+    if (hiddenPostData?.package || (hiddenPostData?.price && hiddenPostData.price.trim() !== '')) return 'sell'
+    return 'buy'
+  }
 
-  // Thông tin cơ bản
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('Tất cả')
+  // Loại bài đăng: người dùng có thể đăng tin cần mua hoặc cần bán
+  const [postType, setPostType] = useState(() => {
+    if (hiddenPostData?.type) return hiddenPostData.type
+    if (hiddenPostData?.package || (hiddenPostData?.price && hiddenPostData.price.trim() !== '')) return 'sell'
+    return 'buy'
+  })
+
+  // Thông tin cơ bản - khởi tạo từ hiddenPostData nếu có
+  const [title, setTitle] = useState(hiddenPostData?.title || '')
+  const [content, setContent] = useState(hiddenPostData?.content || hiddenPostData?.description || '')
+  const [selectedCategory, setSelectedCategory] = useState(hiddenPostData?.category || 'Tất cả')
 
   // Thông tin chi tiết (phù hợp hơn với tin mua/bán đồ)
-  const [price, setPrice] = useState('')
-  const [condition, setCondition] = useState('Mới')
-  const [location, setLocation] = useState('')
-  const [contact, setContact] = useState('')
+  const [price, setPrice] = useState(hiddenPostData?.price || '')
+  const [condition, setCondition] = useState(hiddenPostData?.condition || 'Mới')
+  const [location, setLocation] = useState(hiddenPostData?.location || hiddenPostData?.address || '')
+  const [contact, setContact] = useState(hiddenPostData?.contact || '')
 
-  // File upload state
-  const [files, setFiles] = useState([]);
+  // File upload state - khởi tạo với images/videos từ hiddenPostData
+  const [files, setFiles] = useState([])
+  // Xử lý cả image (số ít) và images (số nhiều)
+  const getExistingImages = () => {
+    if (hiddenPostData?.images && Array.isArray(hiddenPostData.images)) {
+      return hiddenPostData.images;
+    }
+    if (hiddenPostData?.image) {
+      return [hiddenPostData.image];
+    }
+    return [];
+  };
+  const [existingImages, setExistingImages] = useState(getExistingImages())
+  const [existingVideos, setExistingVideos] = useState(hiddenPostData?.videos || [])
 
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState({}) // Object chứa errors cho từng field
-  const [selectedPackage, setSelectedPackage] = useState('basic') // 'basic' | 'premium'
+  const [selectedPackage, setSelectedPackage] = useState(hiddenPostData?.package || 'basic') // 'basic' | 'premium'
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+
+  // Load dữ liệu từ hiddenPostData khi component mount
+  useEffect(() => {
+    if (hiddenPostData) {
+      const determinedType = getPostType()
+      setPostType(determinedType)
+      setTitle(hiddenPostData.title || '')
+      setContent(hiddenPostData.content || hiddenPostData.description || '')
+      setSelectedCategory(hiddenPostData.category || 'Tất cả')
+      setPrice(hiddenPostData.price || '')
+      setCondition(hiddenPostData.condition || 'Mới')
+      setLocation(hiddenPostData.location || hiddenPostData.address || '')
+      setContact(hiddenPostData.contact || '')
+      // Xử lý cả image (số ít) và images (số nhiều)
+      if (hiddenPostData.images && Array.isArray(hiddenPostData.images)) {
+        setExistingImages(hiddenPostData.images);
+      } else if (hiddenPostData.image) {
+        setExistingImages([hiddenPostData.image]);
+      } else {
+        setExistingImages([]);
+      }
+      setExistingVideos(hiddenPostData.videos || [])
+      setSelectedPackage(hiddenPostData.package || 'basic')
+    }
+  }, [hiddenPostData])
 
   const handleBack = () => {
     if (onNavigate) onNavigate('home')
@@ -103,14 +151,18 @@ export default function CreatePostPage({ onNavigate }) {
       const uploadedImages = [];
       const uploadedVideos = [];
 
-      // Simulate file upload
+      // Xử lý file upload - giữ lại images/videos cũ và thêm mới
+      const finalImages = [...existingImages]
+      const finalVideos = [...existingVideos]
+
+      // Simulate file upload cho files mới
       for (const file of files) {
         if (file.type.startsWith('image/')) {
           const url = URL.createObjectURL(file);
-          uploadedImages.push(url);
+          finalImages.push(url);
         } else if (file.type.startsWith('video/')) {
           const url = URL.createObjectURL(file);
-          uploadedVideos.push(url);
+          finalVideos.push(url);
         }
       }
 
@@ -124,8 +176,8 @@ export default function CreatePostPage({ onNavigate }) {
           condition,
           location: location.trim(),
           contact: contact.trim(),
-          images: uploadedImages,
-          videos: uploadedVideos,
+          images: finalImages,
+          videos: finalVideos,
           timestamp: new Date().toISOString(),
           package: postType === 'sell' ? selectedPackage : null, // Lưu thông tin gói nếu là bài đăng có phí
           status: 'pending', // Tất cả bài đăng đều có status pending và chờ admin duyệt
@@ -133,6 +185,11 @@ export default function CreatePostPage({ onNavigate }) {
           author: user.name, // Thêm tên tác giả
           authorAvatar: user.avatar, // Thêm avatar tác giả
         });
+
+        // Nếu đăng lại từ bài đăng đã ẩn, xóa bài đăng cũ
+        if (hiddenPostData?.id) {
+          deletePost?.(hiddenPostData.id);
+        }
       }
 
       setTimeout(() => {
@@ -267,6 +324,12 @@ export default function CreatePostPage({ onNavigate }) {
             submitting={submitting}
             onSubmit={handleSubmit}
             onBack={handleBack}
+            // Props cho repost mode (từ bài đăng đã ẩn)
+            isRepostMode={!!hiddenPostData}
+            existingImages={existingImages}
+            existingVideos={existingVideos}
+            removeExistingImage={(index) => setExistingImages(prev => prev.filter((_, i) => i !== index))}
+            removeExistingVideo={(index) => setExistingVideos(prev => prev.filter((_, i) => i !== index))}
           />
         </div>
       </div>

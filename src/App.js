@@ -8,6 +8,7 @@ import Toast from "./components/Toast";
 import PostDetailPage from "./components/PostDetailPage";
 import { UserProfilePage } from "./components/UserProfilePage";
 import CreatePostPage from "./components/CreatePostPage";
+import EditPostPage from "./components/EditPostPage";
 import RechargePage from "./components/RechargePage";
 import LichSuGiaoDichPage from "./components/LichSuGiaoDichPage";
 
@@ -28,6 +29,8 @@ function App() {
   const [toast, setToast] = useState(null);
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [editPostId, setEditPostId] = useState(null);
+  const [hiddenPostData, setHiddenPostData] = useState(null);
 
 
   // ✅ 2. Cập nhật onNavigate để *thêm* trang vào lịch sử
@@ -41,6 +44,17 @@ function App() {
     } else if (page === "user-profile") {
       setSelectedUserId(data);
       setPageHistory(prev => [...prev, "user-profile"]); // Thêm 'user-profile' vào mảng
+    } else if (page === "edit-post") {
+      setEditPostId(data);
+      setPageHistory(prev => [...prev, "edit-post"]); // Thêm 'edit-post' vào mảng
+    } else if (page === "create-post") {
+      // Nếu có data (từ bài đăng đã ẩn), lưu vào state
+      if (data && typeof data === 'object' && data.fromHiddenPost) {
+        setHiddenPostData(data.fromHiddenPost);
+      } else {
+        setHiddenPostData(null);
+      }
+      setPageHistory(prev => [...prev, "create-post"]);
     } else {
       // Xử lý các trang đơn giản (login, register, home)
       if (page === 'home') {
@@ -102,7 +116,11 @@ function App() {
             )}
 
             {currentPage === "create-post" && (
-              <CreatePostPage onNavigate={onNavigate} />
+              <CreatePostPage onNavigate={onNavigate} hiddenPostData={hiddenPostData} />
+            )}
+
+            {currentPage === "edit-post" && (
+              <EditPostPage postId={editPostId} onNavigate={onNavigate} />
             )}
 
             {currentPage === "post-detail" && (

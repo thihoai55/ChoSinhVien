@@ -5,11 +5,13 @@ import { useNotifications } from "../contexts/NotificationContext";
 import { useChat } from "../contexts/ChatContext";
 import Toast from "./Toast";
 import { getTimeAgo } from "../utils/timeUtils";
+import DeletePostModal from "./DeletePostModal";
+import HidePostModal from "./HidePostModal";
 //import { mockUsers } from "../data/mockAuthor";
 import { mockUsers } from "../data/userData"; 
 
 export function UserProfilePage({ userId, onNavigate, onBack }) {
-    const { posts = [] } = usePosts?.() || {};
+    const { posts = [], deletePost, hidePost, updatePost } = usePosts?.() || {};
     const { isAuthenticated = false, user = null } = useAuth?.() || {};
     const { addNotification } = useNotifications();
     const { openChatWith } = useChat?.() || {};
@@ -20,15 +22,72 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
     const [showMenu, setShowMenu] = useState(false);
     const menuRef = useRef(null);
     const menuButtonRef = useRef(null);
+    const [openPostMenuId, setOpenPostMenuId] = useState(null);
+    const postMenuRefs = useRef({});
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [postToDelete, setPostToDelete] = useState(null);
+    const [showHideModal, setShowHideModal] = useState(false);
+    const [postToHide, setPostToHide] = useState(null);
 
     const profile = mockUsers.find(u => String(u.id) === String(userId)) || mockUsers[0];
     const isOwnProfile = user?.id === userId;
 
     const userPosts = posts.filter((p) => String(p.authorId) === String(userId));
+    
+    // Kiểm tra và xóa bài đăng đã ẩn quá 7 ngày
+    useEffect(() => {
+        if (!isOwnProfile || !user?.id || !deletePost || !addNotification) return;
+        
+        const now = new Date();
+        const postsToDelete = [];
+        
+        // Tìm các bài đăng đã ẩn quá 7 ngày
+        userPosts.forEach((post) => {
+            if (post.hidden && post.hiddenTimestamp) {
+                const hiddenDate = new Date(post.hiddenTimestamp);
+                const diffTime = now - hiddenDate;
+                const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                
+                if (diffDays >= 7) {
+                    postsToDelete.push(post);
+                }
+            }
+        });
+        
+        // Xóa và gửi thông báo
+        if (postsToDelete.length > 0) {
+            postsToDelete.forEach((post) => {
+                deletePost(post.id);
+                addNotification(user.id, {
+                    type: "post_deleted",
+                    message: `Bài đăng "${post.title}" đã bị xóa tự động do đã ẩn quá 7 ngày.`,
+                    postId: post.id,
+                });
+            });
+            
+            if (postsToDelete.length > 0) {
+                showToast(`Đã xóa ${postsToDelete.length} bài đăng đã ẩn quá 7 ngày.`);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [posts, isOwnProfile, user?.id]);
+    
     // Lọc bài đăng đang chờ duyệt (chỉ hiển thị cho chủ tài khoản)
-    const pendingPosts = isOwnProfile ? userPosts.filter((p) => p.status === 'pending') : [];
-    // Lọc bài đăng đã được duyệt (status !== 'pending' hoặc không có status)
-    const approvedPosts = userPosts.filter((p) => !p.status || p.status !== 'pending');
+    const pendingPosts = isOwnProfile ? userPosts.filter((p) => p.status === 'pending' && !p.hidden) : [];
+    // Lọc bài đăng đã ẩn (chỉ hiển thị cho chủ tài khoản, loại trừ những bài đã ẩn quá 7 ngày)
+    const hiddenPosts = isOwnProfile ? userPosts.filter((p) => {
+        if (!p.hidden) return false;
+        if (p.hiddenTimestamp) {
+            const hiddenDate = new Date(p.hiddenTimestamp);
+            const now = new Date();
+            const diffTime = now - hiddenDate;
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            return diffDays < 7; // Chỉ hiển thị những bài chưa quá 7 ngày
+        }
+        return true; // Nếu không có hiddenTimestamp, vẫn hiển thị (tương thích với bài đăng cũ)
+    }) : [];
+    // Lọc bài đăng đã được duyệt và chưa bị ẩn (status !== 'pending' hoặc không có status, và không bị ẩn)
+    const approvedPosts = userPosts.filter((p) => (!p.status || p.status !== 'pending') && !p.hidden);
     const soldIndex = approvedPosts.length > 0 ? Math.ceil(approvedPosts.length * 0.7) : 0;
     const activePosts = approvedPosts.slice(0, soldIndex);
     const soldPosts = approvedPosts.slice(soldIndex);
@@ -95,12 +154,75 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
             ) {
                 setShowMenu(false);
             }
+            // Xử lý click outside cho menu bài đăng
+            if (openPostMenuId) {
+                const menuRef = postMenuRefs.current[openPostMenuId];
+                const buttonRef = postMenuRefs.current[`${openPostMenuId}_button`];
+                if (
+                    menuRef &&
+                    !menuRef.contains(event.target) &&
+                    buttonRef &&
+                    !buttonRef.contains(event.target)
+                ) {
+                    setOpenPostMenuId(null);
+                }
+            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [showMenu]);
+    }, [showMenu, openPostMenuId]);
+
+    // Xử lý menu bài đăng
+    const handleHidePost = (postId) => {
+        if (!isOwnProfile) {
+            showToast("Chỉ chủ bài đăng mới có thể ẩn bài đăng!");
+            return;
+        }
+        const post = posts.find((p) => String(p.id) === String(postId));
+        setPostToHide(post);
+        setOpenPostMenuId(null);
+        setShowHideModal(true);
+    };
+
+    const confirmHidePost = () => {
+        if (postToHide) {
+            hidePost?.(postToHide.id);
+            showToast("Đã ẩn bài đăng!");
+            setShowHideModal(false);
+            setPostToHide(null);
+        }
+    };
+
+    const handleEditPost = (postId) => {
+        if (!isOwnProfile) {
+            showToast("Chỉ chủ bài đăng mới có thể sửa bài đăng!");
+            return;
+        }
+        setOpenPostMenuId(null);
+        onNavigate?.("edit-post", postId);
+    };
+
+    const handleDeletePost = (postId) => {
+        if (!isOwnProfile) {
+            showToast("Chỉ chủ bài đăng mới có thể xóa bài đăng!");
+            return;
+        }
+        const post = posts.find((p) => String(p.id) === String(postId));
+        setPostToDelete(post);
+        setOpenPostMenuId(null);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDeletePost = () => {
+        if (postToDelete) {
+            deletePost?.(postToDelete.id);
+            showToast("Đã xóa bài đăng!");
+            setShowDeleteModal(false);
+            setPostToDelete(null);
+        }
+    };
 
     // --- STYLES & HELPERS ---
     const Icon = ({ name, size = 16, color = "#475569" }) => (
@@ -517,6 +639,14 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                         >
                                             Đã bán ({soldPosts.length})
                                         </button>
+                                        {isOwnProfile && (
+                                            <button
+                                                style={styles.tabsTrigger(activeTab === "hidden")}
+                                                onClick={() => setActiveTab("hidden")}
+                                            >
+                                                Đã ẩn ({hiddenPosts.length})
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -530,11 +660,153 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                         key={post.id}
                                                         style={{
                                                             ...styles.postCard,
+                                                            position: 'relative',
                                                         }}
-                                                        onClick={() => onNavigate("post-detail", post.id)}
+                                                        onClick={(e) => {
+                                                            // Không điều hướng nếu click vào menu
+                                                            if (e.target.closest('.post-menu-container')) {
+                                                                return;
+                                                            }
+                                                            onNavigate("post-detail", post.id);
+                                                        }}
                                                         onMouseEnter={(e) => setHoverEffect(e)}
                                                         onMouseLeave={(e) => removeHoverEffect(e)}
                                                     >
+                                                        {/* Menu 3 chấm - chỉ hiển thị cho chủ bài đăng */}
+                                                        {isOwnProfile && (
+                                                            <div className="post-menu-container" style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
+                                                                <button
+                                                                    ref={(el) => {
+                                                                        if (el) postMenuRefs.current[`${post.id}_button`] = el;
+                                                                    }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setOpenPostMenuId(openPostMenuId === post.id ? null : post.id);
+                                                                    }}
+                                                                    style={{
+                                                                        background: "rgba(255, 255, 255, 0.95)",
+                                                                        border: "none",
+                                                                        borderRadius: "50%",
+                                                                        width: 32,
+                                                                        height: 32,
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        cursor: "pointer",
+                                                                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                                                                        ...baseTransition,
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.background = "#fff";
+                                                                        e.currentTarget.style.transform = "scale(1.1)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.95)";
+                                                                        e.currentTarget.style.transform = "scale(1)";
+                                                                    }}
+                                                                >
+                                                                    <Icon name="three-dots-vertical" size={16} color={colors.textDark} />
+                                                                </button>
+
+                                                                {openPostMenuId === post.id && (
+                                                                    <div
+                                                                        ref={(el) => {
+                                                                            if (el) postMenuRefs.current[post.id] = el;
+                                                                        }}
+                                                                        style={{
+                                                                            position: "absolute",
+                                                                            top: "100%",
+                                                                            right: 0,
+                                                                            marginTop: 4,
+                                                                            background: "#fff",
+                                                                            borderRadius: 8,
+                                                                            boxShadow: "0 5px 15px rgba(0,0,0,0.1)",
+                                                                            border: `1px solid ${colors.border}`,
+                                                                            zIndex: 20,
+                                                                            minWidth: 160,
+                                                                            padding: "4px 0",
+                                                                        }}
+                                                                    >
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleHidePost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.textDark,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = colors.grayBg)}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="eye-slash" size={14} color={colors.textLight} />
+                                                                            Ẩn bài đăng
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleEditPost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.textDark,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = colors.grayBg)}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="pencil" size={14} color={colors.primary} />
+                                                                            Sửa bài đăng
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleDeletePost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.danger,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = "#fee2e2")}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="trash" size={14} color={colors.danger} />
+                                                                            Xóa bài đăng
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
                                                         {/* Khối ảnh */}
                                                         {(post.images && post.images.length > 0) || post.image ? (
                                                             <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg }}>
@@ -546,7 +818,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                 <div style={{
                                                                     position: 'absolute',
                                                                     top: 12,
-                                                                    right: 12,
+                                                                    left: 12,
                                                                     background: colors.orange,
                                                                     color: '#fff',
                                                                     padding: '4px 8px',
@@ -676,11 +948,154 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                 {activePosts.map((post) => (
                                                     <div
                                                         key={post.id}
-                                                        style={styles.postCard}
-                                                        onClick={() => onNavigate("post-detail", post.id)}
+                                                        style={{
+                                                            ...styles.postCard,
+                                                            position: 'relative',
+                                                        }}
+                                                        onClick={(e) => {
+                                                            if (e.target.closest('.post-menu-container')) {
+                                                                return;
+                                                            }
+                                                            onNavigate("post-detail", post.id);
+                                                        }}
                                                         onMouseEnter={(e) => setHoverEffect(e)}
                                                         onMouseLeave={(e) => removeHoverEffect(e)}
                                                     >
+                                                        {/* Menu 3 chấm - chỉ hiển thị cho chủ bài đăng */}
+                                                        {isOwnProfile && (
+                                                            <div className="post-menu-container" style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
+                                                                <button
+                                                                    ref={(el) => {
+                                                                        if (el) postMenuRefs.current[`${post.id}_button`] = el;
+                                                                    }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setOpenPostMenuId(openPostMenuId === post.id ? null : post.id);
+                                                                    }}
+                                                                    style={{
+                                                                        background: "rgba(255, 255, 255, 0.95)",
+                                                                        border: "none",
+                                                                        borderRadius: "50%",
+                                                                        width: 32,
+                                                                        height: 32,
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        cursor: "pointer",
+                                                                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                                                                        ...baseTransition,
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.background = "#fff";
+                                                                        e.currentTarget.style.transform = "scale(1.1)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.95)";
+                                                                        e.currentTarget.style.transform = "scale(1)";
+                                                                    }}
+                                                                >
+                                                                    <Icon name="three-dots-vertical" size={16} color={colors.textDark} />
+                                                                </button>
+
+                                                                {openPostMenuId === post.id && (
+                                                                    <div
+                                                                        ref={(el) => {
+                                                                            if (el) postMenuRefs.current[post.id] = el;
+                                                                        }}
+                                                                        style={{
+                                                                            position: "absolute",
+                                                                            top: "100%",
+                                                                            right: 0,
+                                                                            marginTop: 4,
+                                                                            background: "#fff",
+                                                                            borderRadius: 8,
+                                                                            boxShadow: "0 5px 15px rgba(0,0,0,0.1)",
+                                                                            border: `1px solid ${colors.border}`,
+                                                                            zIndex: 20,
+                                                                            minWidth: 160,
+                                                                            padding: "4px 0",
+                                                                        }}
+                                                                    >
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleHidePost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.textDark,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = colors.grayBg)}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="eye-slash" size={14} color={colors.textLight} />
+                                                                            Ẩn bài đăng
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleEditPost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.textDark,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = colors.grayBg)}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="pencil" size={14} color={colors.primary} />
+                                                                            Sửa bài đăng
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleDeletePost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.danger,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = "#fee2e2")}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="trash" size={14} color={colors.danger} />
+                                                                            Xóa bài đăng
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
                                                         {/* Khối ảnh */}
                                                         {(post.images && post.images.length > 0) || post.image ? (
                                                             <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg }}>
@@ -693,8 +1108,8 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                 <div style={{
                                                                     position: 'absolute',
                                                                     top: 12,
-                                                                    right: 12,
-                                                                   background: colors.redMuted, // Nền mờ hơn
+                                                                    left: 12,
+                                                                    background: colors.redMuted || 'rgba(239, 68, 68, 0.8)', // Nền mờ hơn
                                                                     color: '#fff',
                                                                     padding: '4px 8px',
                                                                     borderRadius: 6,
@@ -832,11 +1247,154 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                             opacity: 0.65,
                                                             cursor: isOwnProfile ? 'pointer' : 'default',
                                                             boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                                                            position: 'relative',
                                                         }}
-                                                        onClick={isOwnProfile ? () => onNavigate("post-detail", post.id) : undefined}
+                                                        onClick={(e) => {
+                                                            if (e.target.closest('.post-menu-container')) {
+                                                                return;
+                                                            }
+                                                            if (isOwnProfile) {
+                                                                onNavigate("post-detail", post.id);
+                                                            }
+                                                        }}
                                                         onMouseEnter={isOwnProfile ? (e) => setHoverEffect(e, 'rgba(0,0,0,0.04)') : undefined}
                                                         onMouseLeave={isOwnProfile ? removeHoverEffect : undefined}
                                                     >
+                                                        {/* Menu 3 chấm - chỉ hiển thị cho chủ bài đăng */}
+                                                        {isOwnProfile && (
+                                                            <div className="post-menu-container" style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
+                                                                <button
+                                                                    ref={(el) => {
+                                                                        if (el) postMenuRefs.current[`${post.id}_button`] = el;
+                                                                    }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setOpenPostMenuId(openPostMenuId === post.id ? null : post.id);
+                                                                    }}
+                                                                    style={{
+                                                                        background: "rgba(255, 255, 255, 0.95)",
+                                                                        border: "none",
+                                                                        borderRadius: "50%",
+                                                                        width: 32,
+                                                                        height: 32,
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        cursor: "pointer",
+                                                                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                                                                        ...baseTransition,
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.background = "#fff";
+                                                                        e.currentTarget.style.transform = "scale(1.1)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.95)";
+                                                                        e.currentTarget.style.transform = "scale(1)";
+                                                                    }}
+                                                                >
+                                                                    <Icon name="three-dots-vertical" size={16} color={colors.textDark} />
+                                                                </button>
+
+                                                                {openPostMenuId === post.id && (
+                                                                    <div
+                                                                        ref={(el) => {
+                                                                            if (el) postMenuRefs.current[post.id] = el;
+                                                                        }}
+                                                                        style={{
+                                                                            position: "absolute",
+                                                                            top: "100%",
+                                                                            right: 0,
+                                                                            marginTop: 4,
+                                                                            background: "#fff",
+                                                                            borderRadius: 8,
+                                                                            boxShadow: "0 5px 15px rgba(0,0,0,0.1)",
+                                                                            border: `1px solid ${colors.border}`,
+                                                                            zIndex: 20,
+                                                                            minWidth: 160,
+                                                                            padding: "4px 0",
+                                                                        }}
+                                                                    >
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleHidePost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.textDark,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = colors.grayBg)}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="eye-slash" size={14} color={colors.textLight} />
+                                                                            Ẩn bài đăng
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleEditPost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.textDark,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = colors.grayBg)}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="pencil" size={14} color={colors.primary} />
+                                                                            Sửa bài đăng
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleDeletePost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.danger,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = "#fee2e2")}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="trash" size={14} color={colors.danger} />
+                                                                            Xóa bài đăng
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
                                                         {/* Khối ảnh */}
                                                         {(post.images && post.images.length > 0) || post.image ? (
                                                             <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg }}>
@@ -848,7 +1406,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                 <div style={{
                                                                     position: 'absolute',
                                                                     top: 12,
-                                                                    right: 12,
+                                                                    left: 12,
                                                                     background: 'rgba(50,50,50,0.7)',
                                                                     color: '#e2e8f0',
                                                                     padding: '4px 8px',
@@ -985,6 +1543,226 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                         )}
                                     </div>
                                 )}
+
+                                {/* --- TABS CONTENT: HIDDEN (chỉ hiển thị khi là trang cá nhân của chính mình) --- */}
+                                {activeTab === 'hidden' && isOwnProfile && (
+                                    <div>
+                                        {hiddenPosts.length > 0 ? (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+                                                {hiddenPosts.map((post) => (
+                                                    <div
+                                                        key={post.id}
+                                                        style={{
+                                                            ...styles.postCard,
+                                                            position: 'relative',
+                                                            opacity: 0.7,
+                                                        }}
+                                                        onMouseEnter={(e) => setHoverEffect(e)}
+                                                        onMouseLeave={(e) => removeHoverEffect(e)}
+                                                    >
+                                                        {/* Menu 3 chấm - chỉ hiển thị cho chủ bài đăng */}
+                                                        {isOwnProfile && (
+                                                            <div className="post-menu-container" style={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
+                                                                <button
+                                                                    ref={(el) => {
+                                                                        if (el) postMenuRefs.current[`${post.id}_button`] = el;
+                                                                    }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setOpenPostMenuId(openPostMenuId === post.id ? null : post.id);
+                                                                    }}
+                                                                    style={{
+                                                                        background: "rgba(255, 255, 255, 0.95)",
+                                                                        border: "none",
+                                                                        borderRadius: "50%",
+                                                                        width: 32,
+                                                                        height: 32,
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        cursor: "pointer",
+                                                                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                                                                        ...baseTransition,
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        e.currentTarget.style.background = "#fff";
+                                                                        e.currentTarget.style.transform = "scale(1.1)";
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.95)";
+                                                                        e.currentTarget.style.transform = "scale(1)";
+                                                                    }}
+                                                                >
+                                                                    <Icon name="three-dots-vertical" size={16} color={colors.textDark} />
+                                                                </button>
+
+                                                                {openPostMenuId === post.id && (
+                                                                    <div
+                                                                        ref={(el) => {
+                                                                            if (el) postMenuRefs.current[post.id] = el;
+                                                                        }}
+                                                                        style={{
+                                                                            position: "absolute",
+                                                                            top: "100%",
+                                                                            right: 0,
+                                                                            marginTop: 4,
+                                                                            background: "#fff",
+                                                                            borderRadius: 8,
+                                                                            boxShadow: "0 5px 15px rgba(0,0,0,0.1)",
+                                                                            border: `1px solid ${colors.border}`,
+                                                                            zIndex: 20,
+                                                                            minWidth: 160,
+                                                                            padding: "4px 0",
+                                                                        }}
+                                                                    >
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleDeletePost(post.id);
+                                                                            }}
+                                                                            style={{
+                                                                                width: "100%",
+                                                                                padding: "8px 12px",
+                                                                                border: "none",
+                                                                                background: "transparent",
+                                                                                textAlign: "left",
+                                                                                cursor: "pointer",
+                                                                                display: "flex",
+                                                                                alignItems: "center",
+                                                                                gap: 8,
+                                                                                color: colors.danger,
+                                                                                fontSize: 13,
+                                                                                ...baseTransition,
+                                                                            }}
+                                                                            onMouseEnter={(e) => (e.currentTarget.style.background = "#fee2e2")}
+                                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                                                        >
+                                                                            <Icon name="trash" size={14} color={colors.danger} />
+                                                                            Xóa bài đăng
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Khối ảnh */}
+                                                        {(post.images && post.images.length > 0) || post.image ? (
+                                                            <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg }}>
+                                                                <img
+                                                                    src={post.images && post.images.length > 0 ? post.images[0] : post.image}
+                                                                    alt={post.title}
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', ...baseTransition, filter: 'grayscale(50%)' }}
+                                                                />
+                                                                <div style={{
+                                                                    position: 'absolute',
+                                                                    top: 12,
+                                                                    left: 12,
+                                                                    background: 'rgba(107, 114, 128, 0.8)',
+                                                                    color: '#fff',
+                                                                    padding: '4px 8px',
+                                                                    borderRadius: 6,
+                                                                    fontSize: 13,
+                                                                    fontWeight: 500,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4
+                                                                }}>
+                                                                    <Icon name="eye-slash" size={14} color="#fff" />
+                                                                    Đã ẩn
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: colors.grayBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <Icon name="image" size={48} color="#cbd5e1" />
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {/* Khối nội dung */}
+                                                        <div style={{ padding: 16 }}>
+                                                            <h4 style={{
+                                                                margin: '0 0 2px',
+                                                                color: colors.textDark,
+                                                                fontWeight: 600,
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: 'vertical',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                minHeight: '2.5em'
+                                                            }}>
+                                                                {post.title}
+                                                            </h4>
+                                                            
+                                                            {/* Giá */}
+                                                            <div style={{
+                                                                color: colors.green,
+                                                                fontSize: 15,
+                                                                fontWeight: 700,
+                                                                margin: '0 0 8px 0'
+                                                            }}>
+                                                                {post.price || "Miễn phí"}
+                                                            </div>
+                                                            
+                                                            {/* Thời gian */}
+                                                            <div style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                fontSize: 13,
+                                                                color: colors.textLight,
+                                                                marginBottom: 8
+                                                            }}>
+                                                                <Icon name="clock" size={14} />
+                                                                {getTimeAgo(post.timestamp) || post.createdAt || "Vừa xong"}
+                                                            </div>
+
+                                                            {/* Nút Đăng lại */}
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onNavigate?.("create-post", { fromHiddenPost: post });
+                                                                }}
+                                                                style={{
+                                                                    width: '100%',
+                                                                    padding: '8px 12px',
+                                                                    borderRadius: 8,
+                                                                    border: 'none',
+                                                                    background: colors.primary,
+                                                                    color: '#fff',
+                                                                    fontSize: 14,
+                                                                    fontWeight: 500,
+                                                                    cursor: 'pointer',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    gap: 6,
+                                                                    marginTop: 8,
+                                                                    ...baseTransition,
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.background = '#2563eb';
+                                                                    e.currentTarget.style.transform = 'translateY(-1px)';
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.background = colors.primary;
+                                                                    e.currentTarget.style.transform = '';
+                                                                }}
+                                                            >
+                                                                <Icon name="arrow-repeat" size={16} color="#fff" />
+                                                                Đăng lại
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div style={{ textAlign: 'center', padding: '64px 0', color: colors.textLight }}>
+                                                <Icon name="eye-slash" size={48} color="#cbd5e1" />
+                                                <p style={{ marginTop: 16, fontSize: 16 }}>Chưa có bài đăng nào đã ẩn</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             {/* KẾT THÚC TABS */}
                         </div>
@@ -992,6 +1770,28 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
 
                 </div>
             </div>
+
+            {/* Delete Post Modal */}
+            <DeletePostModal
+                isOpen={showDeleteModal}
+                onClose={() => {
+                    setShowDeleteModal(false);
+                    setPostToDelete(null);
+                }}
+                onConfirm={confirmDeletePost}
+                postTitle={postToDelete?.title}
+            />
+
+            {/* Hide Post Modal */}
+            <HidePostModal
+                isOpen={showHideModal}
+                onClose={() => {
+                    setShowHideModal(false);
+                    setPostToHide(null);
+                }}
+                onConfirm={confirmHidePost}
+                postTitle={postToHide?.title}
+            />
         </div>
     );
 }

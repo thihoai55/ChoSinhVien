@@ -30,7 +30,14 @@ export default function CreatePostForm({
   setErrors,
   submitting,
   onSubmit,
-  onBack
+  onBack,
+  // Props cho edit mode và repost mode
+  isEditMode = false,
+  isRepostMode = false,
+  existingImages = [],
+  existingVideos = [],
+  removeExistingImage,
+  removeExistingVideo,
 }) {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -338,9 +345,16 @@ export default function CreatePostForm({
           </div>
         )}
 
-        {/* Post type selection */}
+        {/* Post type selection - Disable trong edit mode */}
         <div style={{ marginBottom: '24px' }}>
-          <label style={{ ...labelStyle, fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>Loại bài đăng</label>
+          <label style={{ ...labelStyle, fontSize: '15px', fontWeight: '700', color: '#1f2937' }}>
+            Loại bài đăng
+            {isEditMode && (
+              <span style={{ fontSize: '12px', fontWeight: '400', color: '#6b7280', marginLeft: '8px' }}>
+                (Không thể thay đổi)
+              </span>
+            )}
+          </label>
           <div
             style={{
               display: 'flex',
@@ -350,7 +364,8 @@ export default function CreatePostForm({
           >
             <button
               type="button"
-              onClick={() => setPostType('buy')}
+              onClick={() => !isEditMode && setPostType('buy')}
+              disabled={isEditMode}
               style={{
                 flex: 1,
                 backgroundColor: postType === 'buy' ? '#3b82f6' : '#f8fafc',
@@ -364,16 +379,17 @@ export default function CreatePostForm({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                cursor: 'pointer',
+                cursor: isEditMode ? 'not-allowed' : 'pointer',
+                opacity: isEditMode ? 0.6 : 1,
               }}
               onMouseEnter={(e) => {
-                if (postType === 'buy') {
+                if (!isEditMode && postType === 'buy') {
                   e.target.style.borderColor = '#2563eb';
                   e.target.style.transform = 'translateY(-1px)';
                 }
               }}
               onMouseLeave={(e) => {
-                if (postType === 'buy') {
+                if (!isEditMode && postType === 'buy') {
                   e.target.style.borderColor = '#3b82f6';
                   e.target.style.transform = '';
                 }
@@ -384,7 +400,8 @@ export default function CreatePostForm({
             </button>
             <button
               type="button"
-              onClick={() => setPostType('sell')}
+              onClick={() => !isEditMode && setPostType('sell')}
+              disabled={isEditMode}
               style={{
                 flex: 1,
                 backgroundColor: postType === 'sell' ? '#fbbf24' : '#f8fafc',
@@ -398,16 +415,17 @@ export default function CreatePostForm({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                cursor: 'pointer',
+                cursor: isEditMode ? 'not-allowed' : 'pointer',
+                opacity: isEditMode ? 0.6 : 1,
               }}
               onMouseEnter={(e) => {
-                if (postType === 'sell') {
+                if (!isEditMode && postType === 'sell') {
                   e.target.style.borderColor = '#f59e0b';
                   e.target.style.transform = 'translateY(-1px)';
                 }
               }}
               onMouseLeave={(e) => {
-                if (postType === 'sell') {
+                if (!isEditMode && postType === 'sell') {
                   e.target.style.borderColor = '#fbbf24';
                   e.target.style.transform = '';
                 }
@@ -897,6 +915,144 @@ export default function CreatePostForm({
             />
           </button>
 
+          {/* Existing images/videos (hiển thị khi edit mode hoặc repost mode) */}
+          {(isEditMode || isRepostMode) && (existingImages.length > 0 || existingVideos.length > 0) && (
+            <div style={{ marginTop: '16px', marginBottom: files.length > 0 ? '16px' : '0' }}>
+              <div style={{ fontSize: '14px', fontWeight: '600', color: '#6b7280', marginBottom: '8px' }}>
+                Ảnh/Video hiện có:
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                  gap: '12px',
+                }}
+              >
+                {existingImages.map((imgUrl, index) => (
+                  <div
+                    key={`existing-img-${index}`}
+                    style={{
+                      position: 'relative',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      aspectRatio: '1',
+                      backgroundColor: '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                    }}
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`Existing ${index}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    {removeExistingImage && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeExistingImage(index);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '6px',
+                          right: '6px',
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          color: 'white',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)';
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {existingVideos.map((videoUrl, index) => (
+                  <div
+                    key={`existing-video-${index}`}
+                    style={{
+                      position: 'relative',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      aspectRatio: '1',
+                      backgroundColor: '#f3f4f6',
+                      border: '1px solid #e5e7eb',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: '#f3f4f6',
+                        color: '#6b7280',
+                      }}
+                    >
+                      <div style={{ textAlign: 'center', padding: '16px' }}>
+                        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎥</div>
+                        <div style={{ fontSize: '11px' }}>Video</div>
+                      </div>
+                    </div>
+                    {removeExistingVideo && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeExistingVideo(index);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '6px',
+                          right: '6px',
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          color: 'white',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)';
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* File previews */}
           {files.length > 0 && (
             <div
@@ -904,7 +1060,7 @@ export default function CreatePostForm({
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
                 gap: '12px',
-                marginTop: '16px',
+                marginTop: (isEditMode || isRepostMode) && (existingImages.length > 0 || existingVideos.length > 0) ? '0' : '16px',
               }}
             >
               {files.map((file, index) => (
@@ -1160,10 +1316,10 @@ export default function CreatePostForm({
                     marginRight: '8px',
                   }}
                 ></span>
-                Đang đăng...
+                {isEditMode ? 'Đang cập nhật...' : 'Đang đăng...'}
               </>
             ) : (
-              'Đăng bài'
+              isEditMode ? 'Cập nhật bài đăng' : 'Đăng bài'
             )}
           </button>
         </div>

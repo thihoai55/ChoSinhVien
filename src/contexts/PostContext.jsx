@@ -132,6 +132,31 @@ export function PostProvider({ children }) {
     };
     // --- KẾT THÚC SỬA ĐỔI ---
 
+    // Thêm các hàm mới: updatePost, deletePost, hidePost
+    const updatePost = (postId, updatedData) => {
+        setPosts(
+            posts.map((p) =>
+                String(p.id) === String(postId) ? { ...p, ...updatedData } : p
+            )
+        );
+    };
+
+    const deletePost = (postId) => {
+        setPosts(posts.filter((p) => String(p.id) !== String(postId)));
+        // Xóa comments của bài đăng đó
+        const newComments = { ...comments };
+        delete newComments[postId];
+        setComments(newComments);
+    };
+
+    const hidePost = (postId) => {
+        setPosts(
+            posts.map((p) =>
+                String(p.id) === String(postId) ? { ...p, hidden: true, hiddenTimestamp: new Date().toISOString() } : p
+            )
+        );
+    };
+
     return (
         // --- SỬA LỖI NGHIÊM TRỌNG: Phải là PostContext.Provider ---
         <PostContext.Provider
@@ -145,6 +170,9 @@ export function PostProvider({ children }) {
                 getSavedPosts,
                 getLikedPosts,
                 incrementViews,
+                updatePost,
+                deletePost,
+                hidePost,
             }}
         >
             {children}

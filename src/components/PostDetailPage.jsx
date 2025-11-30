@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 import { usePosts } from "../contexts/PostContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -8,6 +8,8 @@ import { useChat } from "../contexts/ChatContext";
 import Toast from "./Toast";
 import { usePostInteractions } from "./ReplyCmt";
 import { getTimeAgo } from "../utils/timeUtils";
+import DeletePostModal from "./DeletePostModal";
+import HidePostModal from "./HidePostModal";
 
 export default function PostDetailPage({ postId, onNavigate }) {
     const { posts = [], comments = {}, ...postActions } = usePosts?.() || {};
@@ -35,6 +37,11 @@ export default function PostDetailPage({ postId, onNavigate }) {
 
     const [toastMessage, setToastMessage] = useState(null);
     const [currentImage, setCurrentImage] = useState(post?.image || "");
+    const [showPostMenu, setShowPostMenu] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showHideModal, setShowHideModal] = useState(false);
+    const postMenuRef = useRef(null);
+    const postMenuButtonRef = useRef(null);
 
     const showToast = (msg) => setToastMessage(msg);
 
@@ -89,6 +96,25 @@ export default function PostDetailPage({ postId, onNavigate }) {
             setCurrentImage(post.image);
         }
     }, [post]);
+
+    // Đóng menu khi click bên ngoài
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                showPostMenu &&
+                postMenuRef.current &&
+                !postMenuRef.current.contains(event.target) &&
+                postMenuButtonRef.current &&
+                !postMenuButtonRef.current.contains(event.target)
+            ) {
+                setShowPostMenu(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [showPostMenu]);
 
     if (!post) {
         return (
@@ -231,6 +257,48 @@ export default function PostDetailPage({ postId, onNavigate }) {
         openChatWith(post.authorId);
     };
 
+    // Xử lý menu bài đăng
+    const handleHidePost = () => {
+        if (!isOwner) {
+            showToast("Chỉ chủ bài đăng mới có thể ẩn bài đăng!");
+            return;
+        }
+        setShowPostMenu(false);
+        setShowHideModal(true);
+    };
+
+    const confirmHidePost = () => {
+        postActions.hidePost?.(post.id);
+        showToast("Đã ẩn bài đăng!");
+        setShowHideModal(false);
+        onNavigate?.("home");
+    };
+
+    const handleEditPost = () => {
+        if (!isOwner) {
+            showToast("Chỉ chủ bài đăng mới có thể sửa bài đăng!");
+            return;
+        }
+        setShowPostMenu(false);
+        onNavigate?.("edit-post", post.id);
+    };
+
+    const handleDeletePost = () => {
+        if (!isOwner) {
+            showToast("Chỉ chủ bài đăng mới có thể xóa bài đăng!");
+            return;
+        }
+        setShowPostMenu(false);
+        setShowDeleteModal(true);
+    };
+
+    const confirmDeletePost = () => {
+        postActions.deletePost?.(post.id);
+        showToast("Đã xóa bài đăng!");
+        setShowDeleteModal(false);
+        onNavigate?.("home");
+    };
+
     // --- STYLES & HELPERS ---
     const Icon = ({ name, size = 16, color = "#475569" }) => (
         <i className={`bi bi-${name}`} style={{ fontSize: size, color }} />
@@ -342,8 +410,128 @@ export default function PostDetailPage({ postId, onNavigate }) {
                             borderRadius: 12,
                             boxShadow: cardShadow,
                             padding: 20,
+                            position: "relative",
                         }}
                     >
+                        {/* Nút 3 chấm menu - chỉ hiển thị cho chủ bài đăng */}
+                        {isOwner && (
+                            <div style={{ position: "absolute", top: 20, right: 20, zIndex: 10 }}>
+                                <button
+                                    ref={postMenuButtonRef}
+                                    onClick={() => setShowPostMenu(!showPostMenu)}
+                                    style={{
+                                        background: "rgba(255, 255, 255, 0.9)",
+                                        border: "none",
+                                        borderRadius: "50%",
+                                        width: 36,
+                                        height: 36,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        cursor: "pointer",
+                                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                        ...baseTransition,
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = "#fff";
+                                        e.currentTarget.style.transform = "scale(1.1)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.9)";
+                                        e.currentTarget.style.transform = "scale(1)";
+                                    }}
+                                >
+                                    <Icon name="three-dots-vertical" size={18} color={colors.textDark} />
+                                </button>
+
+                                {showPostMenu && (
+                                    <div
+                                        ref={postMenuRef}
+                                        style={{
+                                            position: "absolute",
+                                            top: "100%",
+                                            right: 0,
+                                            marginTop: 8,
+                                            background: "#fff",
+                                            borderRadius: 8,
+                                            boxShadow: "0 5px 15px rgba(0,0,0,0.1)",
+                                            border: "1px solid #e5e7eb",
+                                            zIndex: 20,
+                                            minWidth: 180,
+                                            padding: "4px 0",
+                                        }}
+                                    >
+                                        <button
+                                            onClick={handleHidePost}
+                                            style={{
+                                                width: "100%",
+                                                padding: "10px 16px",
+                                                border: "none",
+                                                background: "transparent",
+                                                textAlign: "left",
+                                                cursor: "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 10,
+                                                color: colors.textDark,
+                                                fontSize: 14,
+                                                ...baseTransition,
+                                            }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.background = colors.grayBg)}
+                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                        >
+                                            <Icon name="eye-slash" size={16} color={colors.textLight} />
+                                            Ẩn bài đăng
+                                        </button>
+                                        <button
+                                            onClick={handleEditPost}
+                                            style={{
+                                                width: "100%",
+                                                padding: "10px 16px",
+                                                border: "none",
+                                                background: "transparent",
+                                                textAlign: "left",
+                                                cursor: "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 10,
+                                                color: colors.textDark,
+                                                fontSize: 14,
+                                                ...baseTransition,
+                                            }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.background = colors.grayBg)}
+                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                        >
+                                            <Icon name="pencil" size={16} color={colors.primary} />
+                                            Sửa bài đăng
+                                        </button>
+                                        <button
+                                            onClick={handleDeletePost}
+                                            style={{
+                                                width: "100%",
+                                                padding: "10px 16px",
+                                                border: "none",
+                                                background: "transparent",
+                                                textAlign: "left",
+                                                cursor: "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 10,
+                                                color: colors.red,
+                                                fontSize: 14,
+                                                ...baseTransition,
+                                            }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.background = "#fee2e2")}
+                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                        >
+                                            <Icon name="trash" size={16} color={colors.red} />
+                                            Xóa bài đăng
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Khối ảnh chính (Giữ nguyên) */}
                         <div
                             style={{
@@ -553,7 +741,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                     border: "none",
                                     cursor: isPending ? "not-allowed" : "pointer",
                                     opacity: isPending ? 0.6 : 1,
-                                    ...baseTransition,
+                                    ...baseTransition,  
                                 }}
                                 onMouseEnter={(e) =>
                                     !isPending && setHoverEffect(e, "rgba(245, 158, 11, 0.2)")
@@ -1064,27 +1252,28 @@ export default function PostDetailPage({ postId, onNavigate }) {
                     </div>
                 )}
 
-                {/* Bài viết tương tự */}
-                <div
-                    style={{
-                        background: "#fff",
-                        borderRadius: 12,
-                        padding: 20,
-                        boxShadow:
-                            "0 6px 15px -3px rgba(0, 0, 0, 0.06), 0 3px 6px -4px rgba(0, 0, 0, 0.06)",
-                    }}
-                >
-                    <h4 style={{ color: colors.textDark, marginBottom: 16 }}>
-                        <Icon name="fire" /> Bài viết tương tự
-                    </h4>
+                {/* Bài viết tương tự - Chỉ hiển thị khi không phải bài đăng đang chờ duyệt */}
+                {!isPending && (
                     <div
                         style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(4, 1fr)",
-                            gap: 16,
+                            background: "#fff",
+                            borderRadius: 12,
+                            padding: 20,
+                            boxShadow:
+                                "0 6px 15px -3px rgba(0, 0, 0, 0.06), 0 3px 6px -4px rgba(0, 0, 0, 0.06)",
                         }}
                     >
-                        {similarPosts.map((similar) => (
+                        <h4 style={{ color: colors.textDark, marginBottom: 16 }}>
+                            <Icon name="fire" /> Bài viết tương tự
+                        </h4>
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(4, 1fr)",
+                                gap: 16,
+                            }}
+                        >
+                            {similarPosts.map((similar) => (
                             <div
                                 key={similar.id}
                                 onClick={() => {
@@ -1144,6 +1333,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                         ))}
                     </div>
                 </div>
+                )}
 
             </div>
 
@@ -1183,6 +1373,22 @@ export default function PostDetailPage({ postId, onNavigate }) {
                 </button>
             )}
             {/* --- KẾT THÚC SỬA 4 --- */}
+
+            {/* Delete Post Modal */}
+            <DeletePostModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={confirmDeletePost}
+                postTitle={post?.title}
+            />
+
+            {/* Hide Post Modal */}
+            <HidePostModal
+                isOpen={showHideModal}
+                onClose={() => setShowHideModal(false)}
+                onConfirm={confirmHidePost}
+                postTitle={post?.title}
+            />
         </div>
     );
 }
