@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useChat } from '../contexts/ChatContext'
 import { useAuth } from '../contexts/AuthContext'
-import { mockUsers } from '../data/userData'
+import { getUsers } from '../data/userData'
 
 export default function ChatBox({ onNavigate }) {
     const { user } = useAuth()
@@ -73,8 +73,9 @@ export default function ChatBox({ onNavigate }) {
     }
 
     if (!partner && targetUserId) {
+        const users = getUsers();
         const partnerUser =
-            mockUsers.find((u) => String(u.id) === String(targetUserId)) || {
+            (users && users.find((u) => String(u.id) === String(targetUserId))) || {
                 id: targetUserId,
                 name: 'Người dùng',
                 avatar: 'https://i.pravatar.cc/150?img=1',

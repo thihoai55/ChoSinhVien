@@ -1,7 +1,7 @@
 import { createContext, useContext, useState } from "react";
 // --- THÊM MỚI: Import hàm logic từ file datalogin.js ---
 //import { checkLogin, mockUsers } from "../data/datalogin"; // Giả sử đường dẫn này là đúng
-import { checkLogin, mockUsers } from "../data/userData";
+import { checkLogin, getUsers, addUser, isStudentEmail } from "../data/userData";
 
 const AuthContext = createContext();
 
@@ -39,41 +39,45 @@ export function AuthProvider({ children }) {
     };
 
     // 🟡 Đăng ký (ĐÃ SỬA)
-    const register = async (name, email, password) => {
+    const register = async (name, email, password, phone = '', location = '', bio = '') => {
         // Giả lập độ trễ của API
         await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Kiểm tra định dạng email sinh viên
+        if (!isStudentEmail(email)) {
+            throw new Error('Email phải là email sinh viên (đuôi .edu.vn)');
+        }
 
-        // Kiểm tra xem email đã tồn tại trong mockUsers chưa
-        const existingUser = mockUsers.find(u => u.email === email);
-        
+        // Kiểm tra xem email đã tồn tại trong danh sách users chưa
+        const existingUser = getUsers().find(u => u.email === email);
         if (existingUser) {
-            // Nếu đã tồn tại, ném lỗi
             throw new Error("Email này đã được đăng ký");
         }
 
-        // Nếu chưa tồn tại, tạo user mới
-        const newUser = {
-            id: `u${Date.now()}`, // Tạo ID mới
-            name: name,
-            email: email,
-            avatar: "https://i.pravatar.cc/150?img=11", // Avatar mặc định cho user mới
-        };
-        
-        // Tự động đăng nhập cho user mới
-        setUser(newUser);
+        // Thêm user mới vào storage (cùng lưu password để có thể login sau)
+        const created = addUser({ name, email, password, phone, location, bio });
+
+        // Tự động đăng nhập cho user mới (created không chứa password)
+        setUser(created);
 
         // Cập nhật trạng thái online cho user mới
         try {
-            const key = `sv_user_presence_${newUser.id}`;
+            const key = `sv_user_presence_${created.id}`;
             window.localStorage.setItem(
                 key,
                 JSON.stringify({ isOnline: true, lastActive: new Date().toISOString() })
             );
         } catch {}
-        
-        // Lưu ý: User mới này sẽ không được lưu vào file datalogin.js
-        // nên nếu bạn logout, bạn sẽ không thể login lại bằng tài khoản này
-        // (Đây là giới hạn của việc dùng mock data)
+
+        return created;
+    };
+
+    // Cập nhật profile hiện tại (thực hiện lưu vào storage và cập nhật context)
+    const updateProfile = async (userId, updates = {}) => {
+        // Synchronous update (mock API)
+        const { updateUser } = await import('../data/userData');
+        const updated = updateUser(userId, updates);
+        setUser(updated);
+        return updated;
     };
 
     // 🔴 Đăng xuất
@@ -96,6 +100,7 @@ export function AuthProvider({ children }) {
                 user,
                 login,
                 register,
+                updateProfile,
                 logout,
                 isAuthenticated: !!user, // Vẫn giữ nguyên logic này
             }}

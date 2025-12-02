@@ -148,6 +148,28 @@ export default function PostDetailPage({ postId, onNavigate }) {
     // Kiểm tra nếu bài đăng đang chờ duyệt
     const isPending = post?.status === 'pending';
 
+    // Không cho hiển thị chi tiết cho bài đã bị từ chối (theo yêu cầu): hướng người dùng về tab đã ẩn
+    if (post?.status === 'rejected') {
+        return (
+            <div style={{ textAlign: "center", padding: 40, background: '#f8fafc', minHeight: '100vh' }}>
+                <h3 style={{ color: '#ef4444', marginBottom: 16 }}>Bài đăng này đã bị từ chối và không hiển thị chi tiết.</h3>
+                <p style={{ color: '#6b7280', marginBottom: 20 }}>Bạn có thể xem bài đăng này trong tab "Đã ẩn" trên trang cá nhân.</p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+                    <button
+                        onClick={() => {
+                            try { window.sessionStorage.setItem('sv_profile_nav', JSON.stringify({ tab: 'hidden', focusPostId: post.id })); } catch {}
+                            onNavigate?.('user-profile', post.authorId);
+                        }}
+                        style={{ padding: '10px 14px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer' }}
+                    >
+                        Xem ở hồ sơ (Đã ẩn)
+                    </button>
+                    <button onClick={() => onNavigate?.('home')} style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff' }}>Về trang chủ</button>
+                </div>
+            </div>
+        );
+    }
+
     // Kiểm tra nếu bài đăng đang chờ duyệt và user không phải chủ bài thì không cho xem
     if (isPending && !isOwner) {
         return (

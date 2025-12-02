@@ -22,9 +22,9 @@ export default function PaymentModal({
   const paymentMethods = [
     {
       id: 'balance',
-      name: 'Số dư hiện tại',
+      name: 'Số dư ví',
       icon: <Wallet2 size={24} />,
-      description: `Thanh toán từ số dư (${balance.toLocaleString('vi-VN')}đ)`,
+      description: `Thanh toán trực tiếp từ số dư (${balance.toLocaleString('vi-VN')}đ)`,
       color: '#3b82f6',
       available: hasEnoughBalance
     },
@@ -451,17 +451,110 @@ export default function PaymentModal({
                 </div>
               </div>
 
+              {/* Method specific info */}
+              <div
+                style={{
+                  marginBottom: '14px',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  backgroundColor: '#f9fafb',
+                  border: '1px dashed #e5e7eb',
+                  fontSize: '12px',
+                  color: '#4b5563',
+                }}
+              >
+                {selectedMethod === 'balance' && (
+                  <div>
+                    <strong>Thanh toán bằng số dư ví</strong>
+                    <p style={{ margin: '4px 0 0' }}>
+                      Hệ thống sẽ trừ trực tiếp {packagePrice.toLocaleString('vi-VN')}đ từ số dư ví của bạn.
+                    </p>
+                  </div>
+                )}
+                {selectedMethod === 'vnpay' && (
+                  <div>
+                    <strong>Thanh toán qua VNPay</strong>
+                    <p style={{ margin: '4px 0 0' }}>
+                      Bạn sẽ được chuyển tới cổng VNPay để chọn ngân hàng / thẻ và xác nhận giao dịch. 
+                      Sau khi thanh toán thành công, hệ thống sẽ tự động kích hoạt gói cho bài đăng.
+                    </p>
+                  </div>
+                )}
+                {selectedMethod === 'momo' && (
+                  <div>
+                    <strong>Thanh toán bằng ví MoMo</strong>
+                    <p style={{ margin: '4px 0 0' }}>
+                      Hệ thống sẽ hiển thị mã QR / deep-link MoMo để bạn xác nhận trên ứng dụng MoMo. 
+                      Giao dịch hoàn tất trong vài giây, không cần dùng số dư ví trên hệ thống.
+                    </p>
+                  </div>
+                )}
+                {selectedMethod === 'qr' && (
+                  <div>
+                    <strong>Thanh toán bằng QR Code</strong>
+                    <p style={{ margin: '4px 0 8px' }}>
+                      Quét mã QR bằng ứng dụng ngân hàng hoặc ví điện tử để thanh toán số tiền chính xác.
+                    </p>
+                    <div
+                      style={{
+                        marginTop: '4px',
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border: '1px solid #e5e7eb',
+                        backgroundColor: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '72px',
+                          height: '72px',
+                          borderRadius: '8px',
+                          background: 'repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 4px, #f9fafb 4px, #f9fafb 8px)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '10px',
+                          color: '#6b7280',
+                          textAlign: 'center',
+                          padding: '4px',
+                        }}
+                      >
+                        Mã QR minh hoạ
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>
+                          Số tiền: {packagePrice.toLocaleString('vi-VN')}đ
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
+                          Nội dung chuyển khoản sẽ được tạo tự động để hệ thống xác nhận giao dịch cho bài đăng của bạn.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Payment Button */}
               <button
                 onClick={handlePayment}
-                disabled={processing || !hasEnoughBalance}
+                disabled={processing || (selectedMethod === 'balance' && !hasEnoughBalance)}
                 style={{
                   width: '100%',
                   padding: '12px',
                   borderRadius: '8px',
                   border: 'none',
-                  backgroundColor: (processing || !hasEnoughBalance) ? '#d1d5db' : '#fbbf24',
-                  color: (processing || !hasEnoughBalance) ? '#9ca3af' : '#1f2937',
+                  backgroundColor:
+                    processing || (selectedMethod === 'balance' && !hasEnoughBalance)
+                      ? '#d1d5db'
+                      : '#fbbf24',
+                  color:
+                    processing || (selectedMethod === 'balance' && !hasEnoughBalance)
+                      ? '#9ca3af'
+                      : '#1f2937',
                   fontSize: '14px',
                   fontWeight: '700',
                   cursor: (processing || !hasEnoughBalance) ? 'not-allowed' : 'pointer',

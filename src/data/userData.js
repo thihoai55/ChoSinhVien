@@ -6,7 +6,7 @@ export const mockUsers = [
       // --- Thông tin Đăng nhập (từ datalogin.js) ---
       id: 'u1',
       name: 'Hoài An',
-      email: 'hoaian.dev@gmail.com',
+      email: 'hoaian@edu.vn',
       password: 'password123',
       avatar: 'https://i.pravatar.cc/150?img=68',
       // --- Thông tin Profile (từ mockAuthor.js) ---
@@ -46,7 +46,7 @@ export const mockUsers = [
       // --- Đăng nhập ---
       id: 'u3',
       name: 'Trần Thị C',
-      email: 'tranthi.c@gmail.com',
+      email: 'tranthi@edu.vn',
       password: 'abc',
       avatar: 'https://i.pravatar.cc/150?img=47',
       // --- Profile ---
@@ -66,7 +66,7 @@ export const mockUsers = [
       // --- Đăng nhập ---
       id: 'u4',
       name: 'Lê Minh Dũng',
-      email: 'dungle@gmail.com',
+      email: 'dungle@edu.vn',
       password: 'dung2002',
       avatar: 'https://i.pravatar.cc/150?img=25',
       // --- Profile ---
@@ -86,7 +86,7 @@ export const mockUsers = [
       // --- Đăng nhập ---
       id: 'u5',
       name: 'Phạm Thảo Nhi',
-      email: 'thaonhi@gmail.com',
+      email: 'thaonhi@edu.vn',
       password: 'nhi123',
       avatar: 'https://i.pravatar.cc/150?img=56',
       // --- Profile ---
@@ -224,17 +224,112 @@ export const mockUsers = [
       role: 'admin', // Đánh dấu đây là tài khoản admin
     },
   ];
-  
-  
-  // Hàm checkLogin (giữ nguyên, nhưng giờ sẽ dùng mảng mockUsers ở trên)
+  // Lưu/đọc users vào localStorage để hỗ trợ persist khi đăng ký
+  const STORAGE_KEY_USERS = 'sv_users_v1';
+
+  function loadUsersFromStorage() {
+    if (typeof window === 'undefined') return mockUsers;
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY_USERS);
+      if (!raw) return mockUsers;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length ? parsed : mockUsers;
+    } catch (e) {
+      console.error('Failed to load users from localStorage', e);
+      return mockUsers;
+    }
+  }
+
+  function saveUsersToStorage(users) {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
+    } catch (e) {
+      console.error('Failed to save users to localStorage', e);
+    }
+  }
+
+  export function getUsers() {
+    return loadUsersFromStorage();
+  }
+
+  // Kiểm tra đăng nhập: trả về user (không có password) nếu khớp
   export function checkLogin(email, password) {
-    const user = mockUsers.find(u => u.email === email);
-    
+    const users = loadUsersFromStorage();
+    const user = users.find(u => u.email === email);
     if (user && user.password === password) {
-      // Trả về tất cả thông tin người dùng (trừ mật khẩu)
-      const { password, ...userWithoutPassword } = user;
+      const { password: _pwd, ...userWithoutPassword } = user;
       return userWithoutPassword;
     }
-    
     return null;
+  }
+
+  // Kiểm tra email sinh viên: mặc định yêu cầu đuôi '.edu.vn'
+  export function isStudentEmail(email) {
+    if (!email || typeof email !== 'string') return false;
+    const parts = email.split('@');
+    if (parts.length !== 2) return false;
+    const domain = parts[1].toLowerCase();
+    return domain.endsWith('.edu.vn');
+  }
+
+  // Thêm user mới và lưu vào localStorage (trả về user không có password)
+  export function addUser({ name, email, password, avatar = null, role = 'user', phone = '', location = '', bio = '' } = {}) {
+    if (!email || !password || !name) {
+      throw new Error('Name, email và password là bắt buộc');
+    }
+
+    if (!isStudentEmail(email)) {
+      throw new Error('Email phải là email sinh viên (đuôi .edu.vn)');
+    }
+
+    const users = loadUsersFromStorage();
+    const exists = users.find(u => u.email === email);
+    if (exists) {
+      throw new Error('Email này đã được đăng ký');
+    }
+
+    const id = 'u' + Date.now();
+    const nowIso = new Date().toISOString();
+    const newUser = {
+      id,
+      name,
+      email,
+      password,
+      avatar: avatar || `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70) + 1}`,
+      phone: phone || '',
+      bio: bio || '',
+      location: location || '',
+      // Lưu timestamp khi join để có thể hiển thị 'x phút trước' chính xác
+      joinedAt: nowIso,
+      responseTime: { rate: 0, label: 'Mới tham gia' },
+      followers: 0,
+      following: 0,
+      rating: 5.0,
+      totalReviews: 0,
+      verified: false,
+      verifiedPlatforms: [],
+      role,
+    };
+
+    const newList = [newUser, ...users];
+    saveUsersToStorage(newList);
+
+    const { password: _pwd, ...userWithoutPassword } = newUser;
+    return userWithoutPassword;
+  }
+
+  // Cập nhật user (theo id) với các trường mới, trả về user không có password
+  export function updateUser(userId, updates = {}) {
+    if (!userId) throw new Error('userId là bắt buộc');
+    const users = loadUsersFromStorage();
+    const idx = users.findIndex((u) => String(u.id) === String(userId));
+    if (idx === -1) throw new Error('Người dùng không tồn tại');
+
+    const merged = { ...users[idx], ...updates };
+    users[idx] = merged;
+    saveUsersToStorage(users);
+
+    const { password: _pwd, ...userWithoutPassword } = merged;
+    return userWithoutPassword;
   }

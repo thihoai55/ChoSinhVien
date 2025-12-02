@@ -277,15 +277,24 @@ export default function Header({ onNavigate, onSearch, showToast }) {
                 onNotificationClick={(n) => {
                   setShowNotify(false)
 
-                  // 1) Thông báo theo dõi: đi đến trang cá nhân của người đã theo dõi mình
+                  // Follow notification -> go to that user's profile
                   if (n.type === 'follow' && n.fromUserId) {
                     onNavigate('user-profile', n.fromUserId)
                     return
                   }
 
-                  // 2) Thông báo liên quan tới bài viết / bình luận
+                  // Post rejected: navigate to your profile and open 'hidden' tab where rejected posts live
+                  if (n.type === 'post_rejected' && n.postId) {
+                    try {
+                      window.sessionStorage.setItem('sv_profile_nav', JSON.stringify({ tab: 'hidden', focusPostId: n.postId }))
+                    } catch {}
+                    // go to current user's profile (notification owner)
+                    onNavigate('user-profile', user?.id)
+                    return
+                  }
+
+                  // Other post-related notifications: open post detail (approved, comment, etc.)
                   if (n.postId) {
-                    // Nếu là thông báo liên quan tới comment, lưu lại để trang chi tiết focus vào đúng comment
                     if (n.commentId && typeof window !== 'undefined') {
                       try {
                         window.sessionStorage.setItem(

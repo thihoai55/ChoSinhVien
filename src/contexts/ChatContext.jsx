@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useAuth } from './AuthContext'
-import { mockUsers } from '../data/userData'
+import { getUsers } from '../data/userData'
 
 const ChatContext = createContext(null)
 
@@ -123,7 +123,8 @@ export function ChatProvider({ children }) {
 
     const result = []
     byPartner.forEach((list, partnerId) => {
-      const partnerUser = mockUsers.find((u) => String(u.id) === String(partnerId)) || {
+      const users = getUsers();
+      const partnerUser = (users && users.find((u) => String(u.id) === String(partnerId))) || {
         id: partnerId,
         name: 'Người dùng',
         avatar: 'https://i.pravatar.cc/150?img=1',

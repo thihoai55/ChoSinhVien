@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { usePosts } from '../../contexts/PostContext';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { mockUsers } from '../../data/userData';
+import { getUsers } from '../../data/userData';
 
 export default function AdminPendingPosts({ onViewDetail }) {
     const { posts, approvePost, rejectPost } = usePosts();
@@ -16,6 +16,15 @@ export default function AdminPendingPosts({ onViewDetail }) {
     const handleApprove = (postId) => {
         if (window.confirm('Bạn có chắc chắn muốn duyệt bài đăng này?')) {
             approvePost(postId);
+            // Gửi thông báo cho chủ bài đăng khi bài được duyệt
+            const post = posts.find(p => String(p.id) === String(postId));
+            if (post && post.authorId && addNotification) {
+                addNotification(post.authorId, {
+                    type: 'post_approved',
+                    postId: postId,
+                    message: `Bài đăng "${post.title}" đã được duyệt bởi quản trị viên.`,
+                });
+            }
         }
     };
 
@@ -42,7 +51,8 @@ export default function AdminPendingPosts({ onViewDetail }) {
     };
 
     const getAuthorName = (authorId) => {
-        const author = mockUsers.find(u => String(u.id) === String(authorId));
+        const users = getUsers();
+        const author = users.find(u => String(u.id) === String(authorId));
         return author ? author.name : 'Người dùng';
     };
 
@@ -89,7 +99,7 @@ export default function AdminPendingPosts({ onViewDetail }) {
     };
 
     const buttonApprove = {
-        padding: '10px 20px',
+        padding: '8px 12px',
         borderRadius: 8,
         border: 'none',
         background: '#10b981',
@@ -103,7 +113,7 @@ export default function AdminPendingPosts({ onViewDetail }) {
     };
 
     const buttonReject = {
-        padding: '10px 20px',
+        padding: '8px 12px',
         borderRadius: 8,
         border: 'none',
         background: '#ef4444',
@@ -117,7 +127,7 @@ export default function AdminPendingPosts({ onViewDetail }) {
     };
 
     const buttonView = {
-        padding: '10px 20px',
+        padding: '8px 12px',
         borderRadius: 8,
         border: '1px solid #e5e7eb',
         background: '#fff',
@@ -239,6 +249,8 @@ export default function AdminPendingPosts({ onViewDetail }) {
                         <div style={postActions}>
                             <button
                                 style={buttonView}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 18px rgba(37,99,235,0.06)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; }}
                                 onClick={() => onViewDetail?.(post.id)}
                             >
                                 <i className="bi bi-eye" />
@@ -246,6 +258,8 @@ export default function AdminPendingPosts({ onViewDetail }) {
                             </button>
                             <button
                                 style={buttonApprove}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 18px rgba(16,185,129,0.08)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; }}
                                 onClick={() => handleApprove(post.id)}
                             >
                                 <i className="bi bi-check-circle" />
@@ -253,6 +267,8 @@ export default function AdminPendingPosts({ onViewDetail }) {
                             </button>
                             <button
                                 style={buttonReject}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 18px rgba(239,68,68,0.06)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; }}
                                 onClick={() => setShowRejectModal(post.id)}
                             >
                                 <i className="bi bi-x-circle" />

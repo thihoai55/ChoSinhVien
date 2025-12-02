@@ -268,7 +268,7 @@ export default function PublicHomePage({ searchQuery = '', onNavigate, showToast
 											})
 										}
 									>
-										<img alt="thumb" src={p.image} style={thumb} />
+										<img alt="thumb" src={(p.images && p.images.length > 0) ? p.images[0] : (p.image || '')} style={thumb} />
 										<div style={{ padding: 12 }}>
 											<h3
 												style={{

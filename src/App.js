@@ -9,6 +9,7 @@ import PostDetailPage from "./components/PostDetailPage";
 import { UserProfilePage } from "./components/UserProfilePage";
 import CreatePostPage from "./components/CreatePostPage";
 import EditPostPage from "./components/EditPostPage";
+import EditProfile from "./components/EditProfile";
 import RechargePage from "./components/RechargePage";
 import LichSuGiaoDichPage from "./components/LichSuGiaoDichPage";
 import PostNotificationHandler from "./components/PostNotificationHandler";
@@ -131,6 +132,10 @@ function App() {
 
                 {currentPage === "edit-post" && (
                   <EditPostPage postId={editPostId} onNavigate={onNavigate} />
+                )}
+
+                {currentPage === "edit-profile" && (
+                  <EditProfile onNavigate={onNavigate} />
                 )}
 
                 {currentPage === "post-detail" && (

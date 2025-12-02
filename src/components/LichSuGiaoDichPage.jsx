@@ -20,12 +20,15 @@ export default function LichSuGiaoDichPage({ onNavigate, onBack }) {
 
     // Lấy icon cho phương thức thanh toán
     const getPaymentMethodIcon = (method) => {
-        switch (method?.toLowerCase()) {
+        const normalized = method?.toLowerCase() || '';
+        switch (normalized) {
             case 'vnpay':
                 return <CreditCard size={18} color="#0052a5" />;
             case 'momo':
                 return <Wallet2 size={18} color="#a50064" />;
             case 'zalopay':
+            case 'qr':
+            case 'qr code':
                 return <QrCode size={18} color="#10b981" />;
             default:
                 return <CreditCard size={18} color="#6b7280" />;
@@ -71,12 +74,16 @@ export default function LichSuGiaoDichPage({ onNavigate, onBack }) {
             transition: 'all 0.2s ease',
         },
         balanceCard: {
-            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            background: '#ffffff',
             borderRadius: '12px',
-            padding: '24px',
+            padding: '16px 18px',
             marginTop: '20px',
-            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)',
-            border: '1px solid #3b82f6',
+            boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)',
+            border: '1px solid #e5e7eb',
         },
         filterTabs: {
             display: 'flex',
@@ -167,12 +174,30 @@ export default function LichSuGiaoDichPage({ onNavigate, onBack }) {
 
                         {/* Balance Card */}
                         <div style={styles.balanceCard}>
-                            <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.9)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Wallet2 size={16} color="#fff" />
-                                Số dư hiện tại
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '999px',
+                                    background: '#eff6ff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: '1px solid #dbeafe'
+                                }}>
+                                    <Wallet2 size={20} color="#2563eb" />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 500, color: '#6b7280', marginBottom: '2px' }}>
+                                        Số dư hiện tại
+                                    </div>
+                                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#111827' }}>
+                                        {balance.toLocaleString('vi-VN')}đ
+                                    </div>
+                                </div>
                             </div>
-                            <div style={{ fontSize: '32px', fontWeight: 700, color: '#fff' }}>
-                                {balance.toLocaleString('vi-VN')}đ
+                            <div style={{ textAlign: 'right', fontSize: '12px', color: '#6b7280' }}>
+                                <div>Theo dõi chi tiết tất cả giao dịch nạp tiền và thanh toán.</div>
                             </div>
                         </div>
                     </div>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useFollow } from '../contexts/FollowContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
-import { mockUsers } from '../data/userData';
+import { getUsers } from '../data/userData';
 
 export default function FollowListModal({ userId, type, onClose, onNavigate }) {
     const { getFollowers, getFollowing, isFollowing, toggleFollow } = useFollow();
@@ -300,7 +300,8 @@ export default function FollowListModal({ userId, type, onClose, onNavigate }) {
                         </div>
                     ) : (
                         list.map((userIdInList) => {
-                            const userData = mockUsers.find((u) => String(u.id) === String(userIdInList));
+                            const users = getUsers();
+                            const userData = users && users.find((u) => String(u.id) === String(userIdInList));
                             if (!userData) return null;
                             const isFollowingUser = user && isFollowing(user.id, userIdInList);
                             const isMutual = isMutualFollow(userIdInList);

@@ -1,10 +1,13 @@
 import React, { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Register({ onNavigate }) {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [phone, setPhone] = useState("");
+    const [location, setLocation] = useState("");
     const [agreeTerms, setAgreeTerms] = useState(false);
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +41,9 @@ export default function Register({ onNavigate }) {
     };
     // ====================================
 
-    const handleSubmit = (e) => {
+    const { register } = useAuth();
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError("");
 
@@ -64,11 +69,15 @@ export default function Register({ onNavigate }) {
         }
 
         setIsLoading(true);
-        setTimeout(() => {
-            alert("Đăng ký thành công!");
+        try {
+            await register(name, email, password, phone, location);
+            // Chuyển sang trang đăng nhập để user nhập credentials vừa tạo
             setIsLoading(false);
-            onNavigate?.("home");
-        }, 1500);
+            onNavigate?.("login");
+        } catch (err) {
+            setIsLoading(false);
+            setError(err?.message || 'Đăng ký thất bại');
+        }
     };
 
     return (
@@ -185,6 +194,66 @@ export default function Register({ onNavigate }) {
                                     ...(activeInput === 'email' && inputFocus)
                                 }}
                                 onFocus={() => setActiveInput('email')}
+                                onBlur={() => setActiveInput(null)}
+                                disabled={isLoading}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Số điện thoại */}
+                    <div>
+                        <label style={{ fontWeight: 500 }}>Số điện thoại</label>
+                        <div style={{ position: "relative", marginTop: 4 }}>
+                            <i
+                                className="bi bi-telephone"
+                                style={{
+                                    position: "absolute",
+                                    left: 10,
+                                    top: "50%",
+                                    transform: "translateY(-50%)",
+                                    color: "#9ca3af",
+                                }}
+                            />
+                            <input
+                                type="tel"
+                                placeholder="0912345678"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                style={{
+                                    ...inputBase,
+                                    ...(activeInput === 'phone' && inputFocus)
+                                }}
+                                onFocus={() => setActiveInput('phone')}
+                                onBlur={() => setActiveInput(null)}
+                                disabled={isLoading}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Địa chỉ */}
+                    <div>
+                        <label style={{ fontWeight: 500 }}>Địa chỉ</label>
+                        <div style={{ position: "relative", marginTop: 4 }}>
+                            <i
+                                className="bi bi-geo-alt"
+                                style={{
+                                    position: "absolute",
+                                    left: 10,
+                                    top: "50%",
+                                    transform: "translateY(-50%)",
+                                    color: "#9ca3af",
+                                }}
+                            />
+                            <input
+                                type="text"
+                                placeholder="Quận/Huyện, Thành phố"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                                style={{
+                                    ...inputBase,
+                                    ...(activeInput === 'location' && inputFocus)
+                                }}
+                                onFocus={() => setActiveInput('location')}
                                 onBlur={() => setActiveInput(null)}
                                 disabled={isLoading}
                             />

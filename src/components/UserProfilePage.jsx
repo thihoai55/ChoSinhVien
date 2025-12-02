@@ -10,7 +10,7 @@ import DeletePostModal from "./DeletePostModal";
 import HidePostModal from "./HidePostModal";
 import FollowListModal from "./FollowListModal";
 //import { mockUsers } from "../data/mockAuthor";
-import { mockUsers } from "../data/userData"; 
+import { getUsers } from "../data/userData"; 
 
 export function UserProfilePage({ userId, onNavigate, onBack }) {
     const { posts = [], deletePost, hidePost, updatePost, markAsSold } = usePosts?.() || {};
@@ -33,7 +33,8 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
     const [showFollowListModal, setShowFollowListModal] = useState(false);
     const [followListType, setFollowListType] = useState(null); // 'followers' or 'following'
 
-    const profile = mockUsers.find(u => String(u.id) === String(userId)) || mockUsers[0];
+    const usersList = getUsers();
+    const profile = (usersList && usersList.find(u => String(u.id) === String(userId))) || (usersList && usersList[0]);
     const isOwnProfile = user?.id === userId;
     const isFollowing = user ? checkIsFollowing(user.id, userId) : false;
     
@@ -42,6 +43,39 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
     const followingCount = getFollowingCount(userId);
 
     const userPosts = posts.filter((p) => String(p.authorId) === String(userId));
+
+    // Support navigation from notifications: read desired tab & focus info from sessionStorage
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const raw = window.sessionStorage.getItem('sv_profile_nav');
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.tab) {
+                setActiveTab(parsed.tab);
+                // focus post after a small delay so DOM has rendered
+                if (parsed.focusPostId) {
+                    setTimeout(() => {
+                        const el = document.getElementById(`post-${parsed.focusPostId}`);
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            const original = el.style.boxShadow;
+                            el.style.boxShadow = '0 6px 20px rgba(37,99,235,0.18)';
+                            el.style.border = `2px solid #2563eb`;
+                            setTimeout(() => {
+                                el.style.boxShadow = original || '';
+                                el.style.border = '';
+                            }, 2200);
+                        }
+                    }, 240);
+                }
+            }
+        } catch (e) {
+            // ignore
+        } finally {
+            try { window.sessionStorage.removeItem('sv_profile_nav'); } catch {}
+        }
+    }, []);
     
     // Kiểm tra và xóa bài đăng đã ẩn quá 7 ngày
     useEffect(() => {
@@ -610,9 +644,9 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                     <div>
                                         <span style={{ color: colors.textLight }}>Phản hồi chat: </span>
                                         <span style={{ fontWeight: 600, color: colors.textDark }}>
-                                            {profile.responseTime.rate}%
+                                            {profile?.responseTime?.rate ?? 0}%
                                             <span style={{ fontWeight: 500, color: colors.textLight, marginLeft: 4 }}>
-                                                ({profile.responseTime.label})
+                                                ({profile?.responseTime?.label ?? 'Mới tham gia'})
                                             </span>
                                         </span>
                                     </div>
@@ -622,7 +656,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                     <Icon name="calendar-check-fill" size={16} color={colors.textLight} style={{ marginTop: 2 }} />
                                     <div>
                                         <span style={{ color: colors.textLight }}>Đã tham gia: </span>
-                                        <span style={{ fontWeight: 500, color: colors.textDark }}>{profile.joinedDate}</span>
+                                        <span style={{ fontWeight: 500, color: colors.textDark }}>{getTimeAgo(profile?.joinedAt || profile?.joinedDate)}</span>
                                     </div>
                                 </div>
 
@@ -726,7 +760,8 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
                                                 {pendingPosts.map((post) => (
                                                     <div
-                                                        key={post.id}
+                                                                id={`post-${post.id}`}
+                                                                key={post.id}
                                                         style={{
                                                             ...styles.postCard,
                                                             position: 'relative',
@@ -1016,7 +1051,8 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
                                                 {activePosts.map((post) => (
                                                     <div
-                                                        key={post.id}
+                                                                id={`post-${post.id}`}
+                                                                key={post.id}
                                                         style={{
                                                             ...styles.postCard,
                                                             position: 'relative',
@@ -1621,6 +1657,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
                                                 {hiddenPosts.map((post) => (
                                                     <div
+                                                        id={`post-${post.id}`}
                                                         key={post.id}
                                                         style={{
                                                             ...styles.postCard,

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { usePosts } from '../contexts/PostContext'
 import { useWallet } from '../contexts/WalletContext'
 import { useNotifications } from '../contexts/NotificationContext'
-import { mockUsers } from '../data/userData'
+import { getUsers } from '../data/userData'
 import { ArrowLeft } from 'react-bootstrap-icons'
 import CreatePostForm from './CreatePostForm'
 import PaymentModal from './PaymentModal'
@@ -159,13 +159,31 @@ export default function CreatePostPage({ onNavigate, hiddenPostData }) {
       const finalVideos = [...existingVideos]
 
       // Simulate file upload cho files mới
+      // Convert files to base64 data URLs so they persist across page reloads
+      const readFileAsDataURL = (file) => new Promise((res, rej) => {
+        try {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result);
+          reader.onerror = (e) => rej(e);
+          reader.readAsDataURL(file);
+        } catch (e) { rej(e); }
+      });
+
       for (const file of files) {
-        if (file.type.startsWith('image/')) {
-          const url = URL.createObjectURL(file);
-          finalImages.push(url);
-        } else if (file.type.startsWith('video/')) {
-          const url = URL.createObjectURL(file);
-          finalVideos.push(url);
+        try {
+          const dataUrl = await readFileAsDataURL(file);
+          if (file.type.startsWith('image/')) {
+            finalImages.push(dataUrl);
+          } else if (file.type.startsWith('video/')) {
+            finalVideos.push(dataUrl);
+          }
+        } catch (e) {
+          // fallback to object URL if conversion fails
+          if (file.type.startsWith('image/')) {
+            finalImages.push(URL.createObjectURL(file));
+          } else if (file.type.startsWith('video/')) {
+            finalVideos.push(URL.createObjectURL(file));
+          }
         }
       }
 
@@ -192,7 +210,8 @@ export default function CreatePostPage({ onNavigate, hiddenPostData }) {
         const createdPost = await addPost(newPost);
 
         // Gửi thông báo cho admin khi có bài đăng mới
-        const admin = mockUsers.find(u => u.role === 'admin');
+        const users = getUsers();
+        const admin = users && users.find(u => u.role === 'admin');
         if (admin && addNotification) {
           addNotification(admin.id, {
             type: 'new_pending_post',

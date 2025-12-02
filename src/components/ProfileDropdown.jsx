@@ -141,15 +141,15 @@ export default function ProfileDropdown({ user, onNavigate }) {
                     <span>Trang cá nhân</span>
                 </button>
                 
-                {/* Link 2: Quản lý bài đăng */}
+                {/* Link 2: Chỉnh sửa thông tin cá nhân (thay cho 'Bài đăng của tôi') */}
                 <button
-                    style={hoveredLink === 'posts' ? dropdownLinkHover : dropdownLink}
-                    onMouseEnter={() => setHoveredLink('posts')}
+                    style={hoveredLink === 'edit' ? dropdownLinkHover : dropdownLink}
+                    onMouseEnter={() => setHoveredLink('edit')}
                     onMouseLeave={() => setHoveredLink(null)}
-                    onClick={() => handleNav('my-posts')}
+                    onClick={() => handleNav('edit-profile', user.id)}
                 >
-                    <i className="bi bi-card-list" style={{fontSize: 16, color: '#6b7280'}}></i>
-                    <span>Bài đăng của tôi</span>
+                    <i className="bi bi-person-gear" style={{fontSize: 16, color: '#6b7280'}}></i>
+                    <span>Chỉnh sửa thông tin cá nhân</span>
                 </button>
 
                 {/* Link 3: Lịch sử giao dịch */}

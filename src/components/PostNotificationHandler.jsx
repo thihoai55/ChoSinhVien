@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { usePosts } from '../contexts/PostContext';
 import { useFollow } from '../contexts/FollowContext';
 import { useNotifications } from '../contexts/NotificationContext';
-import { mockUsers } from '../data/userData';
+import { getUsers } from '../data/userData';
 
 const STORAGE_KEY_NOTIFIED = 'sv_exchange_notified_posts';
 
@@ -50,7 +50,8 @@ export default function PostNotificationHandler() {
                 
                 // Nếu bài đăng được đánh dấu là "đã bán" và chưa được gửi thông báo
                 if (isInSoldTab && !notifiedPosts.current.includes(currentPost.id)) {
-                    const author = mockUsers.find((u) => String(u.id) === String(currentPost.authorId));
+                    const users = getUsers();
+                    const author = (users && users.find((u) => String(u.id) === String(currentPost.authorId))) || null;
                     const followers = getFollowers(currentPost.authorId);
                     
                     // Gửi thông báo cho tất cả followers

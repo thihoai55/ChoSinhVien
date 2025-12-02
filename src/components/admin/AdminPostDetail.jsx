@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { usePosts } from '../../contexts/PostContext';
 import { useNotifications } from '../../contexts/NotificationContext';
-import { mockUsers } from '../../data/userData';
+import { getUsers } from '../../data/userData';
 
 export default function AdminPostDetail({ postId, onBack }) {
     const { posts, approvePost, rejectPost } = usePosts();
@@ -33,11 +33,20 @@ export default function AdminPostDetail({ postId, onBack }) {
         );
     }
 
-    const author = mockUsers.find(u => String(u.id) === String(post.authorId));
+    const users = getUsers();
+    const author = users.find(u => String(u.id) === String(post.authorId));
 
     const handleApprove = () => {
         if (window.confirm('Bạn có chắc chắn muốn duyệt bài đăng này?')) {
             approvePost(postId);
+            // Gửi thông báo cho chủ bài đăng khi bài được duyệt
+            if (post && post.authorId && addNotification) {
+                addNotification(post.authorId, {
+                    type: 'post_approved',
+                    postId: postId,
+                    message: `Bài đăng "${post.title}" đã được duyệt bởi quản trị viên.`,
+                });
+            }
             onBack?.();
         }
     };
@@ -193,7 +202,7 @@ export default function AdminPostDetail({ postId, onBack }) {
     };
 
     const buttonApprove = {
-        padding: '12px 24px',
+        padding: '8px 14px',
         borderRadius: 8,
         border: 'none',
         background: '#10b981',
@@ -207,7 +216,7 @@ export default function AdminPostDetail({ postId, onBack }) {
     };
 
     const buttonReject = {
-        padding: '12px 24px',
+        padding: '8px 14px',
         borderRadius: 8,
         border: 'none',
         background: '#ef4444',
@@ -379,14 +388,24 @@ export default function AdminPostDetail({ postId, onBack }) {
 
                 {post.status === 'pending' && (
                     <div style={actions}>
-                        <button style={buttonApprove} onClick={handleApprove}>
-                            <i className="bi bi-check-circle" />
-                            Duyệt bài đăng
-                        </button>
-                        <button style={buttonReject} onClick={() => setShowRejectModal(true)}>
-                            <i className="bi bi-x-circle" />
-                            Từ chối bài đăng
-                        </button>
+                                <button
+                                    style={buttonApprove}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 18px rgba(16,185,129,0.18)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; }}
+                                    onClick={handleApprove}
+                                >
+                                    <i className="bi bi-check-circle" />
+                                    Duyệt bài đăng
+                                </button>
+                                <button
+                                    style={buttonReject}
+                                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 18px rgba(239,68,68,0.14)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'none'; }}
+                                    onClick={() => setShowRejectModal(true)}
+                                >
+                                    <i className="bi bi-x-circle" />
+                                    Từ chối bài đăng
+                                </button>
                     </div>
                 )}
             </div>
