@@ -202,6 +202,7 @@ export default function CreatePostPage({ onNavigate, hiddenPostData }) {
           timestamp: new Date().toISOString(),
           package: postType === 'sell' ? selectedPackage : null, // Lưu thông tin gói nếu là bài đăng có phí
           status: 'pending', // Tất cả bài đăng đều có status pending và chờ admin duyệt
+          hidden: false, // Bài đăng mới luôn là hidden: false (chưa bị ẩn)
           authorId: user.id, // Thêm authorId để bài đăng hiển thị trong trang cá nhân
           author: user.name, // Thêm tên tác giả
           authorAvatar: user.avatar, // Thêm avatar tác giả

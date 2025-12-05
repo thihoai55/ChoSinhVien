@@ -5,6 +5,48 @@ const PostContext = createContext();
 
 const STORAGE_KEY_POSTS = "sv_exchange_posts";
 const STORAGE_KEY_COMMENTS = "sv_exchange_comments";
+const STORAGE_KEY_TRANSACTIONS = "sv_exchange_transactions";
+const STORAGE_KEY_RATINGS = "sv_seller_ratings";
+
+function loadTransactionsFromStorage() {
+    if (typeof window === "undefined") return [];
+    try {
+        const raw = window.localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        console.error("Failed to load transactions", e);
+        return [];
+    }
+}
+
+function saveTransactionsToStorage(transactions) {
+    if (typeof window === "undefined") return;
+    try {
+        window.localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(transactions));
+    } catch (e) {
+        console.error("Failed to save transactions", e);
+    }
+}
+
+function loadRatingsFromStorage() {
+    if (typeof window === "undefined") return [];
+    try {
+        const raw = window.localStorage.getItem(STORAGE_KEY_RATINGS);
+        return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+        console.error("Failed to load ratings", e);
+        return [];
+    }
+}
+
+function saveRatingsToStorage(ratings) {
+    if (typeof window === "undefined") return;
+    try {
+        window.localStorage.setItem(STORAGE_KEY_RATINGS, JSON.stringify(ratings));
+    } catch (e) {
+        console.error("Failed to save ratings", e);
+    }
+}
 
 function loadPostsFromStorage() {
     if (typeof window === "undefined") return mockPostDetails;
@@ -35,6 +77,8 @@ function loadCommentsFromStorage() {
 export function PostProvider({ children }) {
     const [posts, setPosts] = useState(loadPostsFromStorage());
     const [comments, setComments] = useState(loadCommentsFromStorage());
+    const [transactions, setTransactions] = useState(loadTransactionsFromStorage());
+    const [ratings, setRatings] = useState(loadRatingsFromStorage());
 
     useEffect(() => {
         window.localStorage.setItem(STORAGE_KEY_POSTS, JSON.stringify(posts));
@@ -43,6 +87,14 @@ export function PostProvider({ children }) {
     useEffect(() => {
         window.localStorage.setItem(STORAGE_KEY_COMMENTS, JSON.stringify(comments));
     }, [comments]);
+
+    useEffect(() => {
+        saveTransactionsToStorage(transactions);
+    }, [transactions]);
+
+    useEffect(() => {
+        saveRatingsToStorage(ratings);
+    }, [ratings]);
 
     const addPost = (post) => {
         const newPost = {
@@ -158,11 +210,19 @@ export function PostProvider({ children }) {
         );
     };
 
-    const markAsSold = (postId) => {
+    // markAsSold can accept optional buyer info { buyerId, buyerName, buyerAvatar }
+    const markAsSold = (postId, buyer = null) => {
         setPosts(
             posts.map((p) =>
-                String(p.id) === String(postId) 
-                    ? { ...p, sold: true, soldTimestamp: new Date().toISOString() } 
+                String(p.id) === String(postId)
+                    ? {
+                          ...p,
+                          sold: true,
+                          soldTimestamp: new Date().toISOString(),
+                          buyerId: buyer?.buyerId || buyer?.id || p.buyerId,
+                          buyerName: buyer?.buyerName || buyer?.name || p.buyerName,
+                          buyerAvatar: buyer?.buyerAvatar || buyer?.avatar || p.buyerAvatar,
+                      }
                     : p
             )
         );
@@ -204,6 +264,63 @@ export function PostProvider({ children }) {
         );
     };
 
+    // Add purchase transaction record
+    const addPurchaseTransaction = (postId, buyerId, buyerInfo) => {
+        const post = posts.find(p => String(p.id) === String(postId));
+        const transaction = {
+            id: `txn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            type: 'purchase',
+            postId,
+            sellerId: post?.authorId,
+            sellerName: post?.authorName,
+            sellerAvatar: post?.authorAvatar,
+            buyerId,
+            buyerInfo: {
+                name: buyerInfo.name,
+                phone: buyerInfo.phone,
+                address: buyerInfo.address,
+                quantity: buyerInfo.quantity,
+                note: buyerInfo.note,
+            },
+            timestamp: new Date().toISOString(),
+            status: 'pending', // 'pending' -> 'approved' -> 'completed'
+        };
+        setTransactions((prev) => [transaction, ...prev]);
+        return transaction;
+    };
+
+    // Approve/complete purchase transaction
+    // When seller approves one request, delete all other pending requests and send "sold" notifications
+    const approvePurchaseTransaction = (transactionId, postId) => {
+        // Build result using current transactions (so caller can notify buyers)
+        const prev = transactions || [];
+        const approvedTx = prev.find((t) => String(t.id) === String(transactionId)) || null;
+
+        const cancelledTxs = prev
+            .filter((t) => String(t.postId) === String(postId) && t.status === 'pending' && String(t.id) !== String(transactionId))
+            .map((t) => ({ ...t, status: 'cancelled', cancelReason: 'post_sold' }));
+
+        const updated = prev.map((t) => {
+            if (String(t.id) === String(transactionId)) {
+                return { ...t, status: 'approved' };
+            }
+            if (String(t.postId) === String(postId) && t.status === 'pending') {
+                return { ...t, status: 'cancelled', cancelReason: 'post_sold' };
+            }
+            return t;
+        });
+
+        // Persist updated transactions
+        setTransactions(updated);
+
+        return { approvedTx: approvedTx ? { ...approvedTx, status: 'approved' } : null, cancelledTxs };
+    };
+
+    // Get transactions for a user (as seller or buyer)
+    const getUserTransactions = (userId) => {
+        return transactions.filter((t) => String(t.sellerId) === String(userId) || String(t.buyerId) === String(userId));
+    };
+
     // Tự động xóa bài đăng đã bán sau 2 ngày
     useEffect(() => {
         const now = new Date();
@@ -232,12 +349,41 @@ export function PostProvider({ children }) {
         }
     }, [posts, comments]);
 
+    // Add seller rating
+    const addRating = (sellerId, ratingData) => {
+        const newRating = {
+            id: `rating_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            sellerId,
+            sellerName: ratingData.sellerName,
+            rating: ratingData.rating,
+            review: ratingData.review,
+            timestamp: new Date().toISOString(),
+        };
+        setRatings((prev) => [newRating, ...prev]);
+        return newRating;
+    };
+
+    // Get ratings for a seller
+    const getSellerRatings = (sellerId) => {
+        return ratings.filter((r) => String(r.sellerId) === String(sellerId));
+    };
+
+    // Calculate average rating for a seller
+    const getSellerAverageRating = (sellerId) => {
+        const sellerRatings = getSellerRatings(sellerId);
+        if (sellerRatings.length === 0) return 0;
+        const sum = sellerRatings.reduce((acc, r) => acc + r.rating, 0);
+        return (sum / sellerRatings.length).toFixed(1);
+    };
+
     return (
         // --- SỬA LỖI NGHIÊM TRỌNG: Phải là PostContext.Provider ---
         <PostContext.Provider
             value={{
                 posts,
                 comments,
+                transactions,
+                ratings,
                 addPost,
                 addComment,
                 toggleLike,
@@ -251,6 +397,12 @@ export function PostProvider({ children }) {
                 markAsSold,
                 approvePost,
                 rejectPost,
+                addPurchaseTransaction,
+                approvePurchaseTransaction,
+                getUserTransactions,
+                addRating,
+                getSellerRatings,
+                getSellerAverageRating,
             }}
         >
             {children}

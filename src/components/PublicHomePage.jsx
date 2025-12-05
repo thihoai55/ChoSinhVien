@@ -12,7 +12,7 @@ export default function PublicHomePage({ searchQuery = '', onNavigate, showToast
 	
 	const [selectedPost, setSelectedPost] = useState(null)
 	const [selectedCategory, setSelectedCategory] = useState(null)
-	const [sortType, setSortType] = useState('newest')
+	const [postTypeFilter, setPostTypeFilter] = useState('sell') // 'buy' | 'sell'
 
 	const categories = [
 		{ name: 'Tất cả', icon: 'bi-collection' },
@@ -31,23 +31,22 @@ export default function PublicHomePage({ searchQuery = '', onNavigate, showToast
 	const filtered = useMemo(() => {
 		// Lọc bài đăng: chỉ hiển thị bài đã được duyệt (approved hoặc không có status) và không bị ẩn
 		let processedPosts = posts.filter((p) => {
-			// Chỉ hiển thị bài đăng đã được duyệt và không bị ẩn
-			const isApproved = p.status === 'approved' || (!p.status && p.status !== 'pending' && p.status !== 'rejected');
+			// Chỉ hiển thị bài đăng đã được duyệt (status === 'approved' hoặc không có status) và không bị ẩn
+			const isApproved = p.status === 'approved' || !p.status;
 			const isNotHidden = !p.hidden;
 			return isApproved && isNotHidden;
 		});
 		
-		if (sortType === 'popular') {
-			processedPosts.sort((a, b) => (b.likes || 0) - (a.likes || 0))
-		} else {
-			// Sắp xếp theo mới nhất
-			processedPosts.sort((a, b) => {
-				const timeA = a.timestamp || a.createdAt || '';
-				const timeB = b.timestamp || b.createdAt || '';
-				return new Date(timeB) - new Date(timeA);
-			});
-		}
-		
+		// Lọc theo loại bài đăng: 'buy' (Cần mua) hoặc 'sell' (Cần bán)
+		processedPosts = processedPosts.filter((p) => (p.type || 'sell') === postTypeFilter)
+
+		// Sắp xếp theo mới nhất
+		processedPosts.sort((a, b) => {
+			const timeA = a.timestamp || a.createdAt || '';
+			const timeB = b.timestamp || b.createdAt || '';
+			return new Date(timeB) - new Date(timeA);
+		});
+
 		return processedPosts.filter((p) => {
 			const matchSearch = (p.title + ' ' + (p.content || p.description || ''))
 				.toLowerCase()
@@ -58,7 +57,7 @@ export default function PublicHomePage({ searchQuery = '', onNavigate, showToast
 				p.category === selectedCategory
 			return matchSearch && matchCat
 		})
-	}, [searchQuery, selectedCategory, sortType, posts])
+	}, [searchQuery, selectedCategory, postTypeFilter, posts])
 	const pageSize = 9
 	const [currentPage, setCurrentPage] = useState(1)
 	const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -74,7 +73,7 @@ export default function PublicHomePage({ searchQuery = '', onNavigate, showToast
 	}, [])
 	useEffect(() => {
 		setCurrentPage(1)
-	}, [searchQuery, selectedCategory, sortType])
+	}, [searchQuery, selectedCategory, postTypeFilter])
 
 	const page = {
 		minHeight: '100vh',
@@ -216,20 +215,20 @@ export default function PublicHomePage({ searchQuery = '', onNavigate, showToast
 							}}
 						>
 							<button
-								onClick={() => setSortType('newest')}
-								style={tabButton(sortType === 'newest')}
+								onClick={() => setPostTypeFilter('buy')}
+								style={tabButton(postTypeFilter === 'buy')}
 								onMouseDown={(e) => e.preventDefault()}
 								onFocus={(e) => e.target.blur()}
 							>
-								<i className="bi bi-clock" style={{ marginRight: 8 }} /> Mới nhất
+								<i className="bi bi-cart-plus" style={{ marginRight: 8 }} /> Cần mua
 							</button>
 							<button
-								onClick={() => setSortType('popular')}
-								style={tabButton(sortType === 'popular')}
+								onClick={() => setPostTypeFilter('sell')}
+								style={tabButton(postTypeFilter === 'sell')}
 								onMouseDown={(e) => e.preventDefault()}
 								onFocus={(e) => e.target.blur()}
 							>
-								<i className="bi bi-graph-up" style={{ marginRight: 8 }} /> Phổ biến
+								<i className="bi bi-currency-dollar" style={{ marginRight: 8 }} /> Cần bán
 							</button>
 						</div>
 						<div style={list}>

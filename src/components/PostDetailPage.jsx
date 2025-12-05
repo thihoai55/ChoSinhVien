@@ -10,6 +10,7 @@ import { usePostInteractions } from "./ReplyCmt";
 import { getTimeAgo } from "../utils/timeUtils";
 import DeletePostModal from "./DeletePostModal";
 import HidePostModal from "./HidePostModal";
+import PurchaseConfirmModal from "./PurchaseConfirmModal";
 
 export default function PostDetailPage({ postId, onNavigate }) {
     const { posts = [], comments = {}, ...postActions } = usePosts?.() || {};
@@ -40,6 +41,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
     const [showPostMenu, setShowPostMenu] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showHideModal, setShowHideModal] = useState(false);
+    const [showPurchaseModal, setShowPurchaseModal] = useState(false);
     const postMenuRef = useRef(null);
     const postMenuButtonRef = useRef(null);
 
@@ -249,13 +251,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
         showToast("Đã thêm bình luận!");
     };
 
-    const handleCallPhone = () => {
-        if (!isAuthenticated) {
-            showToast("Vui lòng đăng nhập để xem số điện thoại!");
-            return;
-        }
-        if (post.authorPhone) window.location.href = `tel:${post.authorPhone}`;
-    };
+    // Removed call-phone feature per UX update
 
     const handleShare = () => {
         try {
@@ -277,6 +273,45 @@ export default function PostDetailPage({ postId, onNavigate }) {
             return;
         }
         openChatWith(post.authorId);
+    };
+
+    const handleBuyNow = () => {
+        if (!isAuthenticated) {
+            showToast("Vui lòng đăng nhập để mua!");
+            return;
+        }
+        if (isOwner) {
+            showToast("Bạn không thể mua chính bài của mình.");
+            return;
+        }
+        // Allow multiple buyers to submit purchase requests until seller approves one
+        // Open purchase modal instead of direct action
+        setShowPurchaseModal(true);
+    };
+
+    const handleConfirmPurchase = (buyerInfo) => {
+        if (!user || !post) return;
+        
+        // Create purchase transaction
+        const transaction = postActions.addPurchaseTransaction?.(post.id, user.id, buyerInfo);
+
+        // Send notification to seller
+        if (post?.authorId && user?.id) {
+            addNotification(post.authorId, {
+                type: "purchase",
+                postId: post.id,
+                fromUserId: user.id,
+                buyerId: user.id,
+                buyerName: user.name,
+                buyerAvatar: user.avatar,
+                transactionId: transaction?.id,
+                buyerInfo: buyerInfo,
+                message: `${user.name || "Một người dùng"} muốn mua bài đăng của bạn: ${post.title}`,
+            });
+        }
+
+        setShowPurchaseModal(false);
+        showToast("Yêu cầu mua đã gửi cho chủ bài đăng.");
     };
 
     // Xử lý menu bài đăng
@@ -850,24 +885,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                 >
                                     <Icon name="person" /> Xem trang cá nhân
                                 </button>
-                                <button
-                                    onClick={handleCallPhone}
-                                    style={{
-                                        padding: "8px 12px",
-                                        borderRadius: 8,
-                                        border: "none",
-                                        background: colors.green,
-                                        color: "#fff",
-                                        cursor: "pointer",
-                                        ...baseTransition,
-                                    }}
-                                    onMouseEnter={(e) =>
-                                        setHoverEffect(e, "rgba(16, 185, 129, 0.3)")
-                                    }
-                                    onMouseLeave={removeHoverEffect}
-                                >
-                                    <Icon name="telephone-fill" color="#fff" /> Gọi điện
-                                </button>
+                                {/* Removed phone button: only profile, chat and buy now remain */}
                                 <button
                                     onClick={handleChat}
                                     style={{
@@ -886,6 +904,37 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                 >
                                     <Icon name="chat-dots-fill" color="#fff" /> Nhắn tin
                                 </button>
+                                {(() => {
+                                    const buyDisabled = isPending || isSold || isOwner;
+                                    return (
+                                        <button
+                                            onClick={handleBuyNow}
+                                            disabled={buyDisabled}
+                                            style={{
+                                                padding: "12px 14px",
+                                                borderRadius: 12,
+                                                border: "none",
+                                                background: buyDisabled
+                                                    ? '#e6f4ee'
+                                                    : 'linear-gradient(90deg,#06b6a4,#059669)',
+                                                color: buyDisabled ? '#9ca3af' : '#fff',
+                                                cursor: buyDisabled ? 'not-allowed' : 'pointer',
+                                                fontWeight: 700,
+                                                fontSize: 15,
+                                                boxShadow: buyDisabled ? 'none' : '0 10px 24px rgba(5,150,105,0.18)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                justifyContent: 'center',
+                                                ...baseTransition,
+                                            }}
+                                            onMouseEnter={(e) => !buyDisabled && setHoverEffect(e, "rgba(5,150,105,0.18)")}
+                                            onMouseLeave={removeHoverEffect}
+                                        >
+                                            <Icon name="cart" color={buyDisabled ? '#9ca3af' : '#fff'} /> Mua ngay
+                                        </button>
+                                    );
+                                })()}
                             </div>
                         </div>
 
@@ -1403,6 +1452,16 @@ export default function PostDetailPage({ postId, onNavigate }) {
                 onConfirm={confirmDeletePost}
                 postTitle={post?.title}
             />
+
+            {/* Purchase Confirmation Modal */}
+            {showPurchaseModal && (
+                <PurchaseConfirmModal
+                    post={post}
+                    buyer={user}
+                    onConfirm={handleConfirmPurchase}
+                    onCancel={() => setShowPurchaseModal(false)}
+                />
+            )}
 
             {/* Hide Post Modal */}
             <HidePostModal

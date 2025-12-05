@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useNotifications } from '../contexts/NotificationContext'
+import { getUsers } from '../data/userData'
 import { useAuth } from '../contexts/AuthContext'
 import { usePosts } from '../contexts/PostContext'
 import { useWallet } from '../contexts/WalletContext'
@@ -25,6 +27,7 @@ const categories = [
 export default function EditPostPage({ postId, onNavigate }) {
   const { user } = useAuth()
   const { posts = [], updatePost } = usePosts?.() || {}
+  const { addNotification } = useNotifications()
   const { balance, pay } = useWallet()
 
   // Tìm bài đăng cần chỉnh sửa
@@ -183,6 +186,20 @@ export default function EditPostPage({ postId, onNavigate }) {
           status: 'pending', // Sau khi chỉnh sửa, chuyển về trạng thái chờ duyệt
           // Giữ nguyên authorId, author, authorAvatar
         })
+
+        // Notify admins that a post was edited and awaits approval
+        try {
+          const admins = getUsers().filter(u => u.role === 'admin');
+          admins.forEach((a) => {
+            addNotification(a.id, {
+              type: 'post_pending',
+              postId: post.id,
+              message: `Bài đăng "${title.trim()}" đã được cập nhật và cần được duyệt.`,
+            });
+          });
+        } catch (e) {
+          // ignore if user data not present
+        }
       }
 
       setTimeout(() => {

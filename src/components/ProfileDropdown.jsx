@@ -163,6 +163,17 @@ export default function ProfileDropdown({ user, onNavigate }) {
                     <span>Lịch sử giao dịch</span>
                 </button>
 
+                {/* Link mới: Thông tin người mua */}
+                <button
+                    style={hoveredLink === 'buyers' ? dropdownLinkHover : dropdownLink}
+                    onMouseEnter={() => setHoveredLink('buyers')}
+                    onMouseLeave={() => setHoveredLink(null)}
+                    onClick={() => handleNav('buyers')}
+                >
+                    <i className="bi bi-people" style={{fontSize: 16, color: '#6b7280'}}></i>
+                    <span>Thông tin người mua</span>
+                </button>
+
                 {/* Link 4: Nạp tiền */}
                 <button
                     style={hoveredLink === 'recharge' ? dropdownLinkHover : dropdownLink}
@@ -190,6 +201,20 @@ export default function ProfileDropdown({ user, onNavigate }) {
                     </>
                 )}
 
+                {/* Đường kẻ ngang */}
+                <div style={dropdownDivider}></div>
+
+                {/* Link: Đánh giá người bán */}
+                <button
+                    style={hoveredLink === 'rating' ? dropdownLinkHover : dropdownLink}
+                    onMouseEnter={() => setHoveredLink('rating')}
+                    onMouseLeave={() => setHoveredLink(null)}
+                    onClick={() => handleNav('rating-sellers')}
+                >
+                    <i className="bi bi-star-fill" style={{fontSize: 16, color: '#f59e0b'}}></i>
+                    <span>Đánh giá người bán</span>
+                </button>
+                
                 {/* Đường kẻ ngang */}
                 <div style={dropdownDivider}></div>
                 

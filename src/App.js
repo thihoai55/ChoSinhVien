@@ -13,6 +13,8 @@ import EditProfile from "./components/EditProfile";
 import RechargePage from "./components/RechargePage";
 import LichSuGiaoDichPage from "./components/LichSuGiaoDichPage";
 import PostNotificationHandler from "./components/PostNotificationHandler";
+import BuyerInfoPage from "./components/BuyerInfoPage";
+import RatingSellersPage from "./components/RatingSellersPage";
 import AdminLayout from "./components/AdminLayout";
 
 // 🧩 Import các Provider context
@@ -140,6 +142,14 @@ function App() {
 
                 {currentPage === "post-detail" && (
                   <PostDetailPage postId={selectedPostId} onNavigate={onNavigate} onBack={onBack} />
+                )}
+
+                {currentPage === "buyers" && (
+                  <BuyerInfoPage onNavigate={onNavigate} onBack={onBack} />
+                )}
+
+                {currentPage === "rating-sellers" && (
+                  <RatingSellersPage onNavigate={onNavigate} onBack={onBack} />
                 )}
 
                 {currentPage === "login" && (

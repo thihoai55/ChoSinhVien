@@ -10,7 +10,7 @@ import { useChat } from '../contexts/ChatContext'
 
 export default function Header({ onNavigate, onSearch, showToast }) {
   const { user, logout } = useAuth(); // Đã có user
-  const { notifications, unreadCount, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAllAsRead, markAsRead } = useNotifications();
   const { unreadCount: unreadChats, openChatList } = useChat();
 
   // --- SỬA 1: Lấy thêm 2 hàm toggle ---
@@ -291,6 +291,17 @@ export default function Header({ onNavigate, onSearch, showToast }) {
                     // go to current user's profile (notification owner)
                     onNavigate('user-profile', user?.id)
                     return
+                  }
+
+                  // Purchase notification -> open buyer info page
+                  if (n.type === 'purchase') {
+                    try {
+                      window.sessionStorage.setItem('sv_buyer_nav', JSON.stringify({ notifyId: n.id, postId: n.postId }));
+                    } catch {}
+                    // mark this notify as read and open buyers page
+                    markAsRead?.(n.id);
+                    onNavigate('buyers');
+                    return;
                   }
 
                   // Other post-related notifications: open post detail (approved, comment, etc.)
