@@ -255,7 +255,9 @@ export function PostProvider({ children }) {
                 address: buyerInfo.address,
                 quantity: buyerInfo.quantity,
                 note: buyerInfo.note,
+                paymentMethod: buyerInfo.paymentMethod || 'cash_on_delivery', // 'cash_on_delivery' or 'bank_transfer'
             },
+            bankTransferInfo: null, // Will be filled by seller when approving bank_transfer payment
             timestamp: new Date().toISOString(),
             status: 'pending', // 'pending' -> 'approved' -> 'completed'
         };
@@ -293,6 +295,35 @@ export function PostProvider({ children }) {
     // Get transactions for a user (as seller or buyer)
     const getUserTransactions = (userId) => {
         return transactions.filter((t) => String(t.sellerId) === String(userId) || String(t.buyerId) === String(userId));
+    };
+
+    // Update transaction with bank transfer info (called by seller when approving bank_transfer payment)
+    // Do NOT mark the transaction as fully approved here — seller provides bank info and
+    // waits for buyer to complete the transfer. We'll set status to 'awaiting_payment'
+    // so the request remains visible in pending list until buyer confirms.
+    const updateTransactionBankInfo = (transactionId, bankTransferInfo) => {
+        setTransactions((prev) => prev.map((t) => String(t.id) === String(transactionId)
+            ? { ...t, bankTransferInfo, status: 'awaiting_payment' }
+            : t
+        ));
+    };
+
+    // Complete payment for a bank transfer transaction (called by buyer after confirming payment)
+    const completeTransactionPayment = (transactionId) => {
+        setTransactions((prev) => prev.map((t) => String(t.id) === String(transactionId)
+            ? { ...t, status: 'completed' }
+            : t
+        ));
+    };
+
+    // Cancel all other pending transactions for a post when one transaction completes
+    const cancelPendingTransactionsForPost = (postId, exceptTransactionId = null) => {
+        setTransactions((prev) => prev.map((t) => {
+            if (String(t.postId) === String(postId) && t.status === 'pending' && String(t.id) !== String(exceptTransactionId)) {
+                return { ...t, status: 'cancelled', cancelReason: 'post_sold' };
+            }
+            return t;
+        }));
     };
 
     // Tự động xóa bài đăng đã bán sau 2 ngày
@@ -374,6 +405,9 @@ export function PostProvider({ children }) {
                 addPurchaseTransaction,
                 approvePurchaseTransaction,
                 getUserTransactions,
+                updateTransactionBankInfo,
+                completeTransactionPayment,
+                cancelPendingTransactionsForPost,
                 addRating,
                 getSellerRatings,
                 getSellerAverageRating,

@@ -11,9 +11,10 @@ import { getTimeAgo } from "../utils/timeUtils";
 import DeletePostModal from "./DeletePostModal";
 import HidePostModal from "./HidePostModal";
 import PurchaseConfirmModal from "./PurchaseConfirmModal";
+import PaymentNotificationModal from "./PaymentNotificationModal";
 
 export default function PostDetailPage({ postId, onNavigate }) {
-    const { posts = [], comments = {}, ...postActions } = usePosts?.() || {};
+    const { posts = [], comments = {}, transactions = [], ...postActions } = usePosts?.() || {};
     const { user = null, isAuthenticated = false } = useAuth?.() || {};
     const { openChatWith, isOpen: isChatOpen } = useChat?.() || {};
 
@@ -42,6 +43,8 @@ export default function PostDetailPage({ postId, onNavigate }) {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showHideModal, setShowHideModal] = useState(false);
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [paymentNotification, setPaymentNotification] = useState(null);
     const postMenuRef = useRef(null);
     const postMenuButtonRef = useRef(null);
 
@@ -98,6 +101,27 @@ export default function PostDetailPage({ postId, onNavigate }) {
             setCurrentImage(post.image);
         }
     }, [post]);
+
+    // Check for payment transfer notification
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+
+        try {
+            const raw = window.sessionStorage.getItem("sv_payment_notification");
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (!parsed || parsed.postId !== postId) return;
+
+            // Show payment notification modal
+            setPaymentNotification(parsed);
+            setShowPaymentModal(true);
+
+            // Remove from sessionStorage so it doesn't show again
+            window.sessionStorage.removeItem("sv_payment_notification");
+        } catch (e) {
+            console.error("Error processing payment notification:", e);
+        }
+    }, [postId]);
 
     // Đóng menu khi click bên ngoài
     useEffect(() => {
@@ -312,6 +336,72 @@ export default function PostDetailPage({ postId, onNavigate }) {
 
         setShowPurchaseModal(false);
         showToast("Yêu cầu mua đã gửi cho chủ bài đăng.");
+    };
+
+    const handlePaymentConfirmed = () => {
+        if (!paymentNotification || !user || !post) return;
+
+        try {
+            const transactionId = paymentNotification.transactionId;
+            const postId = paymentNotification.postId;
+
+            // Get the approved transaction to extract buyer info
+            const approvedTx = transactions?.find(t => String(t.id) === String(transactionId));
+
+            // Mark transaction as completed
+            postActions.completeTransactionPayment?.(transactionId);
+
+            // Mark post as sold with buyer info
+            if (approvedTx) {
+                postActions.markAsSold?.(postId, {
+                    buyerId: approvedTx.buyerId,
+                    buyerName: approvedTx.buyerInfo?.name,
+                    buyerAvatar: approvedTx.buyerInfo?.avatar,
+                });
+                
+                // Cancel all other pending transactions for this post
+                const otherPendingTxs = transactions?.filter(
+                    t => String(t.postId) === String(postId) && 
+                    t.status === 'pending' && 
+                    String(t.id) !== String(transactionId)
+                ) || [];
+
+                // Update transactions state (cancel others)
+                postActions.cancelPendingTransactionsForPost?.(postId, transactionId);
+
+                // Notify cancelled buyers
+                otherPendingTxs.forEach(txn => {
+                    if (txn.buyerId) {
+                        addNotification(txn.buyerId, {
+                            type: "purchase_cancelled",
+                            postId: postId,
+                            transactionId: txn.id,
+                            postTitle: post.title,
+                            message: `Yêu cầu mua hàng của bạn cho "${post.title}" đã bị hủy. Bài đăng này đã được bán cho người khác.`,
+                        });
+                    }
+                });
+            }
+
+            // Notify seller that payment is complete
+            if (post?.authorId && user?.id) {
+                addNotification(post.authorId, {
+                    type: "payment_completed",
+                    transactionId: transactionId,
+                    postId: postId,
+                    buyerName: user.name,
+                    message: `${user.name || "Một người dùng"} đã xác nhận thanh toán cho "${post.title}".`,
+                });
+            }
+
+            // Close modal
+            setShowPaymentModal(false);
+            setPaymentNotification(null);
+            showToast("Cảm ơn bạn đã thanh toán. Chủ bài đăng đã được thông báo và bài đăng đã được đánh dấu đã bán.");
+        } catch (error) {
+            console.error("Error confirming payment:", error);
+            showToast("Có lỗi xảy ra. Vui lòng thử lại.");
+        }
     };
 
     // Xử lý menu bài đăng
@@ -1460,6 +1550,19 @@ export default function PostDetailPage({ postId, onNavigate }) {
                     buyer={user}
                     onConfirm={handleConfirmPurchase}
                     onCancel={() => setShowPurchaseModal(false)}
+                />
+            )}
+
+            {/* Payment Notification Modal */}
+            {showPaymentModal && paymentNotification && (
+                <PaymentNotificationModal
+                    bankTransferInfo={paymentNotification.bankTransferInfo}
+                    post={post}
+                    onConfirm={handlePaymentConfirmed}
+                    onClose={() => {
+                        setShowPaymentModal(false);
+                        setPaymentNotification(null);
+                    }}
                 />
             )}
 

@@ -19,7 +19,8 @@ export default function RatingSellersPage({ onNavigate }) {
     // Get sellers from approved transactions with actual user data from posts
     const sellers = new Map();
     userTransactions.forEach((txn) => {
-      if (String(txn.buyerId) === String(user?.id) && txn.status === 'approved') {
+      // Allow rating for transactions that were approved or completed (buyer finished payment)
+      if (String(txn.buyerId) === String(user?.id) && (txn.status === 'approved' || txn.status === 'completed')) {
         // Avoid duplicates
         if (!sellers.has(txn.sellerId)) {
           // Try to find seller info from posts (to get avatar and accurate name)

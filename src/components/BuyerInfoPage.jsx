@@ -3,24 +3,47 @@ import { useNotifications } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
 import { useChat } from '../contexts/ChatContext';
+import BankTransferModal from './BankTransferModal';
 
 export default function BuyerInfoPage({ onNavigate, onBack }) {
   const { notifications = [], markAsRead, markAllAsRead, addNotification } = useNotifications();
   const { user } = useAuth();
-  const { posts = [], transactions = [], approvePurchaseTransaction, markAsSold, updatePost } = usePosts() || {};
+  const { posts = [], transactions = [], approvePurchaseTransaction, markAsSold, updatePost, updateTransactionBankInfo } = usePosts() || {};
   const { openChatWith } = useChat() || {};
 
   const [selectedNotifyId, setSelectedNotifyId] = useState(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState(null);
   const [viewMode, setViewMode] = useState('requests'); // 'requests' | 'history'
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [pendingBankTransaction, setPendingBankTransaction] = useState(null);
   const containerRef = useRef(null);
 
   // Lấy các giao dịch liên quan tới người bán (current user)
   const sellerTransactions = transactions.filter((t) => String(t.sellerId) === String(user?.id));
-  const pendingTransactions = sellerTransactions.filter((t) => t.status === 'pending');
+  // Consider 'awaiting_payment' as part of requests so seller still sees requests waiting for buyer transfer
+  const pendingTransactions = sellerTransactions.filter((t) => t.status === 'pending' || t.status === 'awaiting_payment');
   const historyTransactions = sellerTransactions.filter((t) => t.status === 'approved' || t.status === 'completed');
 
   const handleApprovePurchase = (notifyId, transactionId, postId) => {
+    try {
+      const transaction = transactions.find(t => String(t.id) === String(transactionId));
+      
+      // Check if payment method is bank transfer
+      if (transaction?.buyerInfo?.paymentMethod === 'bank_transfer') {
+        // Show bank transfer modal instead of immediate approval
+        setPendingBankTransaction({ notifyId, transactionId, postId });
+        setShowBankModal(true);
+        return;
+      }
+
+      // For cash_on_delivery, approve immediately
+      finishApproval(notifyId, transactionId, postId);
+    } catch (error) {
+      console.error('Error approving purchase:', error);
+    }
+  };
+
+  const finishApproval = (notifyId, transactionId, postId) => {
     try {
       console.log('Approving purchase:', { notifyId, transactionId, postId });
       
@@ -75,7 +98,43 @@ export default function BuyerInfoPage({ onNavigate, onBack }) {
       }
       console.log('Purchase approved successfully');
     } catch (error) {
-      console.error('Error approving purchase:', error);
+      console.error('Error in finishApproval:', error);
+    }
+  };
+
+  const handleBankTransferConfirm = (bankTransferInfo) => {
+    try {
+      if (!pendingBankTransaction) return;
+
+      const { notifyId, transactionId, postId } = pendingBankTransaction;
+      const transaction = transactions.find(t => String(t.id) === String(transactionId));
+      const post = posts.find(p => String(p.id) === String(postId));
+
+      // Update transaction with bank transfer info and mark as approved
+      updateTransactionBankInfo?.(transactionId, bankTransferInfo);
+
+      // Notify buyer with payment transfer info
+      if (transaction?.buyerId) {
+        addNotification(transaction.buyerId, {
+          type: 'payment_transfer_info',
+          transactionId: transactionId,
+          postId: postId,
+          bankTransferInfo: bankTransferInfo,
+          message: `Chủ bài đăng "${post?.title || ''}" đã gửi thông tin chuyển khoản. Vui lòng kiểm tra chi tiết.`,
+        });
+      }
+
+      // Mark notification as read
+      markAsRead?.(notifyId);
+
+      // Close bank transfer modal and keep in requests until buyer confirms payment
+      setShowBankModal(false);
+      setPendingBankTransaction(null);
+
+      // Do NOT move to history here; wait for buyer to confirm payment.
+      console.log('Bank transfer info saved and buyer notified (awaiting buyer payment)');
+    } catch (error) {
+      console.error('Error handling bank transfer confirmation:', error);
     }
   };
 
@@ -296,6 +355,19 @@ export default function BuyerInfoPage({ onNavigate, onBack }) {
           })}
         </div>
       </div>
+
+      {/* Bank Transfer Modal */}
+      {showBankModal && pendingBankTransaction && (
+        <BankTransferModal
+          post={posts.find(p => String(p.id) === String(pendingBankTransaction.postId)) || {}}
+          transaction={transactions.find(t => String(t.id) === String(pendingBankTransaction.transactionId)) || {}}
+          onClose={() => {
+            setShowBankModal(false);
+            setPendingBankTransaction(null);
+          }}
+          onConfirm={handleBankTransferConfirm}
+        />
+      )}
     </div>
   );
 }
