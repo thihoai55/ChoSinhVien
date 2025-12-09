@@ -11,7 +11,6 @@ import { getTimeAgo } from "../utils/timeUtils";
 import DeletePostModal from "./DeletePostModal";
 import HidePostModal from "./HidePostModal";
 import PurchaseConfirmModal from "./PurchaseConfirmModal";
-import PaymentNotificationModal from "./PaymentNotificationModal";
 
 export default function PostDetailPage({ postId, onNavigate }) {
     const { posts = [], comments = {}, ...postActions } = usePosts?.() || {};
@@ -43,8 +42,6 @@ export default function PostDetailPage({ postId, onNavigate }) {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showHideModal, setShowHideModal] = useState(false);
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-    const [showPaymentNotificationModal, setShowPaymentNotificationModal] = useState(false);
-    const [paymentNotification, setPaymentNotification] = useState(null);
     const postMenuRef = useRef(null);
     const postMenuButtonRef = useRef(null);
 
@@ -94,30 +91,11 @@ export default function PostDetailPage({ postId, onNavigate }) {
     }, [post, setReplyingToCommentId]);
 
     useEffect(() => {
-        // Ưu tiên lấy ảnh đầu tiên từ mảy images, nếu không có thì lấy image
+        // Ưu tiên lấy ảnh đầu tiên từ mảng images, nếu không có thì lấy image
         if (post?.images && post.images.length > 0) {
             setCurrentImage(post.images[0]);
         } else if (post?.image) {
             setCurrentImage(post.image);
-        }
-    }, [post]);
-
-    // Check for payment transfer notification from sessionStorage
-    useEffect(() => {
-        if (!post || typeof window === "undefined") return;
-        
-        try {
-            const raw = window.sessionStorage.getItem("sv_payment_notification");
-            if (!raw) return;
-            const parsed = JSON.parse(raw);
-            if (!parsed || parsed.postId !== post.id) return;
-
-            setPaymentNotification(parsed);
-            setShowPaymentNotificationModal(true);
-            
-            window.sessionStorage.removeItem("sv_payment_notification");
-        } catch (e) {
-            console.error("Error loading payment notification:", e);
         }
     }, [post]);
 
@@ -334,28 +312,6 @@ export default function PostDetailPage({ postId, onNavigate }) {
 
         setShowPurchaseModal(false);
         showToast("Yêu cầu mua đã gửi cho chủ bài đăng.");
-    };
-
-    const handlePaymentConfirmed = () => {
-        if (!paymentNotification || !post) return;
-
-        const { completeTransactionPayment } = postActions || {};
-        
-        // Cập nhật status giao dịch thành completed
-        completeTransactionPayment?.(paymentNotification.transactionId);
-
-        // Gửi thông báo cho người bán biết thanh toán thành công
-        addNotification(post.authorId, {
-            type: 'payment_completed',
-            postId: post.id,
-            transactionId: paymentNotification.transactionId,
-            buyerName: paymentNotification.buyerName,
-            message: `Người mua ${paymentNotification.buyerName} đã thanh toán cho "${post.title}"`,
-        });
-
-        setShowPaymentNotificationModal(false);
-        setPaymentNotification(null);
-        showToast("Thanh toán thành công! Chúng tôi đã thông báo cho người bán.");
     };
 
     // Xử lý menu bài đăng
@@ -1514,18 +1470,6 @@ export default function PostDetailPage({ postId, onNavigate }) {
                 onConfirm={confirmHidePost}
                 postTitle={post?.title}
             />
-
-            {/* Payment Notification Modal */}
-            {showPaymentNotificationModal && paymentNotification && (
-                <PaymentNotificationModal
-                    notification={paymentNotification}
-                    onConfirmPayment={handlePaymentConfirmed}
-                    onClose={() => {
-                        setShowPaymentNotificationModal(false);
-                        setPaymentNotification(null);
-                    }}
-                />
-            )}
         </div>
     );
 }

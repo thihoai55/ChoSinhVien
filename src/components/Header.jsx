@@ -304,21 +304,6 @@ export default function Header({ onNavigate, onSearch, showToast }) {
                     return;
                   }
 
-                  // Payment transfer info notification -> open post detail with payment modal
-                  if (n.type === 'payment_transfer_info' && n.postId) {
-                    try {
-                      window.sessionStorage.setItem('sv_payment_notification', JSON.stringify({
-                        postId: n.postId,
-                        transactionId: n.transactionId,
-                        buyerName: n.buyerName,
-                        bankTransferInfo: n.bankTransferInfo,
-                      }));
-                    } catch {}
-                    markAsRead?.(n.id);
-                    onNavigate('post-detail', n.postId);
-                    return;
-                  }
-
                   // Other post-related notifications: open post detail (approved, comment, etc.)
                   if (n.postId) {
                     if (n.commentId && typeof window !== 'undefined') {

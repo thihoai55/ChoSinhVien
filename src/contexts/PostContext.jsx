@@ -255,9 +255,7 @@ export function PostProvider({ children }) {
                 address: buyerInfo.address,
                 quantity: buyerInfo.quantity,
                 note: buyerInfo.note,
-                paymentMethod: buyerInfo.paymentMethod || 'cash_on_delivery', // 'cash_on_delivery' hoặc 'bank_transfer'
             },
-            bankTransferInfo: null, // Sẽ được set khi chủ bài duyệt
             timestamp: new Date().toISOString(),
             status: 'pending', // 'pending' -> 'approved' -> 'completed'
         };
@@ -290,24 +288,6 @@ export function PostProvider({ children }) {
         setTransactions(updated);
 
         return { approvedTx: approvedTx ? { ...approvedTx, status: 'approved' } : null, cancelledTxs };
-    };
-
-    // Update bank transfer info for a transaction (when seller approves and provides bank info)
-    const updateTransactionBankInfo = (transactionId, bankInfo) => {
-        setTransactions((prev) => prev.map((t) => 
-            String(t.id) === String(transactionId) 
-                ? { ...t, bankTransferInfo: bankInfo }
-                : t
-        ));
-    };
-
-    // Complete payment for a transaction
-    const completeTransactionPayment = (transactionId) => {
-        setTransactions((prev) => prev.map((t) => 
-            String(t.id) === String(transactionId) 
-                ? { ...t, status: 'completed', completedAt: new Date().toISOString() }
-                : t
-        ));
     };
 
     // Get transactions for a user (as seller or buyer)
@@ -393,8 +373,6 @@ export function PostProvider({ children }) {
                 rejectPost,
                 addPurchaseTransaction,
                 approvePurchaseTransaction,
-                updateTransactionBankInfo,
-                completeTransactionPayment,
                 getUserTransactions,
                 addRating,
                 getSellerRatings,
