@@ -3,6 +3,8 @@ import { useNotifications } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
 import { useChat } from '../contexts/ChatContext';
+import BankTransferModal from './BankTransferModal';
+import PaymentNotificationModal from './PaymentNotificationModal';
 
 export default function BuyerInfoPage({ onNavigate, onBack }) {
   const { notifications = [], markAsRead, markAllAsRead, addNotification } = useNotifications();
@@ -13,6 +15,8 @@ export default function BuyerInfoPage({ onNavigate, onBack }) {
   const [selectedNotifyId, setSelectedNotifyId] = useState(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState(null);
   const [viewMode, setViewMode] = useState('requests'); // 'requests' | 'history'
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [pendingBankTransaction, setPendingBankTransaction] = useState(null);
   const containerRef = useRef(null);
 
   // Lấy các giao dịch liên quan tới người bán (current user)
@@ -23,6 +27,34 @@ export default function BuyerInfoPage({ onNavigate, onBack }) {
   const handleApprovePurchase = (notifyId, transactionId, postId) => {
     try {
       console.log('Approving purchase:', { notifyId, transactionId, postId });
+      
+      // Tìm transaction để kiểm tra payment method
+      const transaction = transactions.find(t => String(t.id) === String(transactionId));
+      const post = posts.find(p => String(p.id) === String(postId));
+      
+      // Nếu là bank transfer, hiện BankTransferModal
+      if (transaction?.buyerInfo?.paymentMethod === 'bank_transfer') {
+        setPendingBankTransaction({
+          notifyId,
+          transactionId,
+          postId,
+          transaction,
+          post,
+        });
+        setShowBankModal(true);
+        return;
+      }
+      
+      // Nếu là cash on delivery, approval ngay
+      finishApproval(notifyId, transactionId, postId);
+    } catch (error) {
+      console.error('Error approving purchase:', error);
+    }
+  };
+
+  const finishApproval = (notifyId, transactionId, postId) => {
+    try {
+      console.log('Finishing approval:', { notifyId, transactionId, postId });
       
       // Approve transaction and get affected txs back
       const res = approvePurchaseTransaction?.(transactionId, postId) || {};
@@ -75,7 +107,7 @@ export default function BuyerInfoPage({ onNavigate, onBack }) {
       }
       console.log('Purchase approved successfully');
     } catch (error) {
-      console.error('Error approving purchase:', error);
+      console.error('Error finishing approval:', error);
     }
   };
 
@@ -116,6 +148,41 @@ export default function BuyerInfoPage({ onNavigate, onBack }) {
     if (openChatWith) openChatWith(buyerId);
     // navigate to post if provided
     if (postId) onNavigate?.('post-detail', postId);
+  };
+
+  const handleBankTransferConfirm = (bankInfo) => {
+    if (!pendingBankTransaction) return;
+
+    const { updateTransactionBankInfo } = usePosts() || {};
+    
+    // Lưu thông tin ngân hàng vào transaction
+    updateTransactionBankInfo?.(pendingBankTransaction.transactionId, bankInfo);
+
+    // Gửi thông báo cho người mua với thông tin tài khoản ngân hàng
+    const transaction = pendingBankTransaction.transaction;
+    const post = pendingBankTransaction.post;
+    
+    addNotification(transaction.buyerId, {
+      type: 'payment_transfer_info',
+      postId: post.id,
+      transactionId: transaction.id,
+      buyerName: transaction.buyerInfo?.name,
+      buyerAvatar: transaction.buyerAvatar,
+      post: post,
+      bankTransferInfo: bankInfo,
+      message: `Người bán đã gửi thông tin tài khoản để bạn chuyển khoản cho "${post.title}"`,
+    });
+
+    setShowBankModal(false);
+    
+    // Hoàn tất quá trình approval
+    finishApproval(
+      pendingBankTransaction.notifyId,
+      pendingBankTransaction.transactionId,
+      pendingBankTransaction.postId
+    );
+    
+    setPendingBankTransaction(null);
   };
 
   return (
@@ -296,6 +363,20 @@ export default function BuyerInfoPage({ onNavigate, onBack }) {
           })}
         </div>
       </div>
+
+      {/* Bank Transfer Modal */}
+      {showBankModal && pendingBankTransaction && (
+        <BankTransferModal
+          post={pendingBankTransaction.post}
+          buyer={user}
+          transaction={pendingBankTransaction.transaction}
+          onConfirm={handleBankTransferConfirm}
+          onCancel={() => {
+            setShowBankModal(false);
+            setPendingBankTransaction(null);
+          }}
+        />
+      )}
     </div>
   );
 }

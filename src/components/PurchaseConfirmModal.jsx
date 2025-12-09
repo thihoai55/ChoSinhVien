@@ -7,6 +7,7 @@ export default function PurchaseConfirmModal({ post, buyer, onConfirm, onCancel 
     address: '',
     quantity: 1,
     note: '',
+    paymentMethod: 'cash_on_delivery', // 'cash_on_delivery' hoặc 'bank_transfer'
   });
   const [errors, setErrors] = useState({});
 
@@ -279,6 +280,35 @@ export default function PurchaseConfirmModal({ post, buyer, onConfirm, onCancel 
               />
               {errors.quantity && <div style={errorText}>{errors.quantity}</div>}
             </div>
+          </div>
+        </div>
+
+        {/* Phương thức thanh toán */}
+        <div style={section}>
+          <div style={sectionTitle}>Phương thức thanh toán</div>
+          <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="cash_on_delivery"
+                checked={buyerInfo.paymentMethod === 'cash_on_delivery'}
+                onChange={(e) => handleInputChange('paymentMethod', e.target.value)}
+                style={{ width: 18, height: 18, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 14, color: '#374151' }}>Thanh toán sau khi nhận hàng</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="bank_transfer"
+                checked={buyerInfo.paymentMethod === 'bank_transfer'}
+                onChange={(e) => handleInputChange('paymentMethod', e.target.value)}
+                style={{ width: 18, height: 18, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 14, color: '#374151' }}>Thanh toán trước (chuyển khoản)</span>
+            </label>
           </div>
         </div>
 
