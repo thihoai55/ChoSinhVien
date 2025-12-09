@@ -204,7 +204,7 @@ export default function CreatePostPage({ onNavigate, hiddenPostData }) {
           status: 'pending', // Tất cả bài đăng đều có status pending và chờ admin duyệt
           hidden: false, // Bài đăng mới luôn là hidden: false (chưa bị ẩn)
           authorId: user.id, // Thêm authorId để bài đăng hiển thị trong trang cá nhân
-          author: user.name, // Thêm tên tác giả
+          authorName: user.name, // Thêm tên tác giả (sử dụng authorName để hiển thị chính xác)
           authorAvatar: user.avatar, // Thêm avatar tác giả
         };
         

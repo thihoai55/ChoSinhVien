@@ -110,7 +110,7 @@ export function PostProvider({ children }) {
             // Bài đăng "Cần mua" sẽ không có status, bài đăng "Cần bán" sẽ có status: 'pending'
             status: post.status,
         };
-        setPosts([newPost, ...posts]);
+        setPosts((prev) => [newPost, ...prev]);
         return newPost; // Trả về post đã tạo để có thể lấy id
     };
 
@@ -187,81 +187,54 @@ export function PostProvider({ children }) {
 
     // Thêm các hàm mới: updatePost, deletePost, hidePost
     const updatePost = (postId, updatedData) => {
-        setPosts(
-            posts.map((p) =>
-                String(p.id) === String(postId) ? { ...p, ...updatedData } : p
-            )
-        );
+        setPosts((prev) => prev.map((p) => String(p.id) === String(postId) ? { ...p, ...updatedData } : p));
     };
 
     const deletePost = (postId) => {
-        setPosts(posts.filter((p) => String(p.id) !== String(postId)));
-        // Xóa comments của bài đăng đó
-        const newComments = { ...comments };
-        delete newComments[postId];
-        setComments(newComments);
+        setPosts((prev) => prev.filter((p) => String(p.id) !== String(postId)));
+        // Xóa comments của bài đăng đó (dùng functional updater)
+        setComments((prev) => {
+            const newComments = { ...prev };
+            delete newComments[postId];
+            return newComments;
+        });
     };
 
     const hidePost = (postId) => {
-        setPosts(
-            posts.map((p) =>
-                String(p.id) === String(postId) ? { ...p, hidden: true, hiddenTimestamp: new Date().toISOString() } : p
-            )
-        );
+        setPosts((prev) => prev.map((p) => String(p.id) === String(postId) ? { ...p, hidden: true, hiddenTimestamp: new Date().toISOString() } : p));
     };
 
     // markAsSold can accept optional buyer info { buyerId, buyerName, buyerAvatar }
     const markAsSold = (postId, buyer = null) => {
-        setPosts(
-            posts.map((p) =>
-                String(p.id) === String(postId)
-                    ? {
-                          ...p,
-                          sold: true,
-                          soldTimestamp: new Date().toISOString(),
-                          buyerId: buyer?.buyerId || buyer?.id || p.buyerId,
-                          buyerName: buyer?.buyerName || buyer?.name || p.buyerName,
-                          buyerAvatar: buyer?.buyerAvatar || buyer?.avatar || p.buyerAvatar,
-                      }
-                    : p
-            )
-        );
+        setPosts((prev) => prev.map((p) => String(p.id) === String(postId)
+            ? {
+                ...p,
+                sold: true,
+                soldTimestamp: new Date().toISOString(),
+                buyerId: buyer?.buyerId || buyer?.id || p.buyerId,
+                buyerName: buyer?.buyerName || buyer?.name || p.buyerName,
+                buyerAvatar: buyer?.buyerAvatar || buyer?.avatar || p.buyerAvatar,
+            }
+            : p
+        ));
     };
 
     // Hàm duyệt bài đăng (chỉ dành cho admin)
     // Khi duyệt: bài đăng chuyển sang tab "Đang bán" trong giao diện user
     const approvePost = (postId) => {
-        setPosts(
-            posts.map((p) =>
-                String(p.id) === String(postId) 
-                    ? { 
-                        ...p, 
-                        status: 'approved', 
-                        approvedAt: new Date().toISOString(),
-                        // Không set sold: true, để bài đăng vào tab "Đang bán" (activePosts)
-                    } 
-                    : p
-            )
-        );
+        setPosts((prev) => prev.map((p) => String(p.id) === String(postId)
+            ? { ...p, status: 'approved', approvedAt: new Date().toISOString() }
+            : p
+        ));
     };
 
     // Hàm từ chối bài đăng (chỉ dành cho admin)
     // Khi từ chối: bài đăng chuyển vào tab "đã ẩn" và không hiển thị trong danh sách
     const rejectPost = (postId, reason = '') => {
-        setPosts(
-            posts.map((p) =>
-                String(p.id) === String(postId) 
-                    ? { 
-                        ...p, 
-                        status: 'rejected', 
-                        rejectedAt: new Date().toISOString(), 
-                        rejectionReason: reason,
-                        hidden: true, // Chuyển vào tab "đã ẩn"
-                        hiddenTimestamp: new Date().toISOString()
-                    } 
-                    : p
-            )
-        );
+        setPosts((prev) => prev.map((p) => String(p.id) === String(postId)
+            ? { ...p, status: 'rejected', rejectedAt: new Date().toISOString(), rejectionReason: reason, hidden: true, hiddenTimestamp: new Date().toISOString() }
+            : p
+        ));
     };
 
     // Add purchase transaction record
@@ -272,8 +245,9 @@ export function PostProvider({ children }) {
             type: 'purchase',
             postId,
             sellerId: post?.authorId,
-            sellerName: post?.authorName,
-            sellerAvatar: post?.authorAvatar,
+            // Support both author / authorName fields for backward compatibility
+            sellerName: post?.authorName || post?.author || '',
+            sellerAvatar: post?.authorAvatar || post?.authorAvatar || '',
             buyerId,
             buyerInfo: {
                 name: buyerInfo.name,

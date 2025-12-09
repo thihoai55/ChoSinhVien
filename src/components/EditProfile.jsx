@@ -142,7 +142,7 @@ export default function EditProfile({ onNavigate }) {
               />
             </div>
 
-            <div>
+            <div> 
               <label style={label}>Xác thực tài khoản</label>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

@@ -854,7 +854,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                                 <img
                                     src={post.authorAvatar}
-                                    alt={post.author}
+                                    alt={post.authorName || post.author}
                                     style={{
                                         width: 60,
                                         height: 60,
@@ -865,7 +865,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                                 />
                                 <div>
                                     <div style={{ fontWeight: 600, color: colors.textDark }}>
-                                        {post.author}
+                                        {post.authorName || post.author}
                                     </div>
                                 </div>
                             </div>
@@ -1252,7 +1252,7 @@ export default function PostDetailPage({ postId, onNavigate }) {
                         }}
                     >
                         <h4 style={{ color: colors.textDark, marginBottom: 16 }}>
-                            <Icon name="person-fill" /> Bài viết khác của {post.author}
+                            <Icon name="person-fill" /> Bài viết khác của {post.authorName || post.author}
                         </h4>
                         <div
                             style={{

@@ -970,7 +970,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                             </div>
                                                             
                                                             {/* Tác giả */}
-                                                            {post.author && (
+                                                            {(post.authorName || post.author) && (
                                                                 <div style={{
                                                                     display: 'flex',
                                                                     alignItems: 'center',
@@ -982,11 +982,11 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                     {post.authorAvatar && (
                                                                         <img 
                                                                             src={post.authorAvatar} 
-                                                                            alt={post.author}
+                                                                            alt={post.authorName || post.author}
                                                                             style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
                                                                         />
                                                                     )}
-                                                                    <span>{post.author}</span>
+                                                                    <span>{post.authorName || post.author}</span>
                                                                 </div>
                                                             )}
 
@@ -1288,7 +1288,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                             </div>
 
                                                             {/* Tác giả */}
-                                                            {post.author && (
+                                                            {(post.authorName || post.author) && (
                                                                 <div style={{
                                                                     display: 'flex',
                                                                     alignItems: 'center',
@@ -1300,11 +1300,11 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                     {post.authorAvatar && (
                                                                         <img 
                                                                             src={post.authorAvatar} 
-                                                                            alt={post.author}
+                                                                            alt={post.authorName || post.author}
                                                                             style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
                                                                         />
                                                                     )}
-                                                                    <span>{post.author}</span>
+                                                                    <span>{post.authorName || post.author}</span>
                                                                 </div>
                                                             )}
                                                             
@@ -1574,7 +1574,7 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                             </div>
 
                                                             {/* Tác giả */}
-                                                            {post.author && (
+                                                            {(post.authorName || post.author) && (
                                                                 <div style={{
                                                                     display: 'flex',
                                                                     alignItems: 'center',
@@ -1586,11 +1586,11 @@ export function UserProfilePage({ userId, onNavigate, onBack }) {
                                                                     {post.authorAvatar && (
                                                                         <img 
                                                                             src={post.authorAvatar} 
-                                                                            alt={post.author}
+                                                                            alt={post.authorName || post.author}
                                                                             style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
                                                                         />
                                                                     )}
-                                                                    <span>{post.author}</span>
+                                                                    <span>{post.authorName || post.author}</span>
                                                                 </div>
                                                             )}
 
