@@ -38,7 +38,10 @@ export default function AdminPostDetail({ postId, onBack }) {
 
     const handleApprove = () => {
         if (window.confirm('Bạn có chắc chắn muốn duyệt bài đăng này?')) {
-            approvePost(postId);
+            // ✅ Truyền addNotification callback vào approvePost
+            // approvePost sẽ tự động gửi notification đến PREMIUM post buyers
+            approvePost(postId, addNotification);
+            
             // Gửi thông báo cho chủ bài đăng khi bài được duyệt
             if (post && post.authorId && addNotification) {
                 addNotification(post.authorId, {
@@ -47,6 +50,7 @@ export default function AdminPostDetail({ postId, onBack }) {
                     message: `Bài đăng "${post.title}" đã được duyệt bởi quản trị viên.`,
                 });
             }
+
             onBack?.();
         }
     };

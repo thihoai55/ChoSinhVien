@@ -5,6 +5,7 @@ import {
   StarFill, ShieldCheck, LightningCharge
 } from 'react-bootstrap-icons';
 import AddressSelector from './AddressSelector';
+import { PRICING_PACKAGES } from '../data/pricingPackages';
 
 export default function CreatePostForm({ 
   postType, 
@@ -214,7 +215,7 @@ export default function CreatePostForm({
           </p>
         </div>
 
-        {/* Premium Package Selection - Chỉ hiển thị khi Cần bán */}
+        {/* Premium Package Selection - Hiển thị động từ PRICING_PACKAGES */}
         {postType === 'sell' && (
           <div
             style={{
@@ -232,82 +233,104 @@ export default function CreatePostForm({
               </h3>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              {/* Gói Cơ bản */}
-              <div
-                onClick={() => setSelectedPackage('basic')}
-                style={{
-                  border: selectedPackage === 'basic' ? '2px solid #f59e0b' : '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  padding: '14px',
-                  backgroundColor: selectedPackage === 'basic' ? '#ffffff' : '#f9fafb',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>Gói Cơ bản</span>
-                  {selectedPackage === 'basic' && (
-                    <CheckCircle size={18} color="#10b981" />
-                  )}
-                </div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b', marginBottom: '4px' }}>
-                  10.000đ
-                </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
-                  • Hiển thị 7 ngày<br/>
-                  • Ưu tiên trung bình<br/>
-                  • Hỗ trợ cơ bản
-                </div>
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              {/* Render các gói từ PRICING_PACKAGES */}
+              {Object.entries(PRICING_PACKAGES).map(([packageKey, packageInfo]) => {
+                const packageId = packageKey.toLowerCase();
+                const isSelected = selectedPackage === packageId;
+                const isFreePackage = packageId === 'free';
+                const isBasicPackage = packageId === 'basic';
+                const isPremiumPackage = packageId === 'premium';
+                
+                // Chọn màu sắc dựa trên gói
+                let borderColor = '#d1d5db';
+                let bgColor = '#f9fafb';
+                let priceColor = '#6b7280';
+                
+                if (isSelected) {
+                  if (isFreePackage) {
+                    borderColor = '#10b981';
+                    bgColor = '#f0fdf4';
+                    priceColor = '#10b981';
+                  } else if (isBasicPackage) {
+                    borderColor = '#f59e0b';
+                    bgColor = '#ffffff';
+                    priceColor = '#f59e0b';
+                  } else {
+                    borderColor = '#f59e0b';
+                    bgColor = '#fffbeb';
+                    priceColor = '#f59e0b';
+                  }
+                } else {
+                  if (isFreePackage) {
+                    priceColor = '#10b981';
+                  } else if (isBasicPackage) {
+                    priceColor = '#f59e0b';
+                  } else {
+                    priceColor = '#f59e0b';
+                  }
+                }
 
-              {/* Gói Premium */}
-              <div
-                onClick={() => setSelectedPackage('premium')}
-                style={{
-                  border: selectedPackage === 'premium' ? '2px solid #f59e0b' : '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  padding: '14px',
-                  backgroundColor: selectedPackage === 'premium' ? '#fffbeb' : '#f9fafb',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '-8px',
-                    right: '12px',
-                    backgroundColor: '#fbbf24',
-                    color: '#1f2937',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    fontSize: '10px',
-                    fontWeight: '700',
-                  }}
-                >
-                  KHUYẾN MÃI
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>Gói Premium</span>
-                  {selectedPackage === 'premium' && (
-                    <CheckCircle size={18} color="#10b981" />
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b' }}>25.000đ</span>
-                  <span style={{ fontSize: '12px', color: '#9ca3af', textDecoration: 'line-through' }}>35.000đ</span>
-                </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
-                  • Hiển thị 30 ngày<br/>
-                  • Ưu tiên cao nhất<br/>
-                  • Badge "Premium"<br/>
-                  • Hỗ trợ 24/7
-                </div>
-              </div>
+                return (
+                  <div
+                    key={packageId}
+                    onClick={() => setSelectedPackage(packageId)}
+                    style={{
+                      border: `2px solid ${borderColor}`,
+                      borderRadius: '8px',
+                      padding: '14px',
+                      backgroundColor: bgColor,
+                      cursor: 'pointer',
+                      position: 'relative',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {/* Badge cho PREMIUM */}
+                    {isPremiumPackage && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '-8px',
+                          right: '12px',
+                          backgroundColor: '#fbbf24',
+                          color: '#1f2937',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontSize: '10px',
+                          fontWeight: '700',
+                        }}
+                      >
+                        TỐT NHẤT
+                      </div>
+                    )}
+
+                    {/* Header: Tên gói + Checkmark */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                        Gói {packageInfo.name}
+                      </span>
+                      {isSelected && (
+                        <CheckCircle size={18} color="#10b981" />
+                      )}
+                    </div>
+
+                    {/* Giá */}
+                    <div style={{ fontSize: isFreePackage ? '18px' : '20px', fontWeight: '700', color: priceColor, marginBottom: '4px' }}>
+                      {isFreePackage ? 'MIỄN PHÍ' : (packageInfo.price === 0 ? 'MIỄN PHÍ' : `${packageInfo.price}.000đ`)}
+                    </div>
+
+                    {/* Features */}
+                    <div style={{ fontSize: '12px', color: '#6b7280', lineHeight: '1.4' }}>
+                      {packageInfo.features.map((feature, idx) => (
+                        <div key={idx}>• {feature}</div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
+            {/* Thông tin thanh toán */}
             <div
               style={{
                 marginTop: '12px',
@@ -318,7 +341,11 @@ export default function CreatePostForm({
               }}
             >
               <div style={{ fontSize: '13px', color: '#92400e', fontWeight: '500' }}>
-                💳 Thanh toán: {selectedPackage === 'basic' ? '10.000đ' : '25.000đ'} sẽ được tính khi bạn nhấn "Đăng bài"
+                💳 Thanh toán: {
+                  !selectedPackage || selectedPackage === 'free' ? 'MIỄN PHÍ' :
+                  selectedPackage === 'basic' ? '10.000đ' : 
+                  '25.000đ'
+                } sẽ được tính khi bạn nhấn "Đăng bài"
               </div>
             </div>
           </div>

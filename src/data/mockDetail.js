@@ -1,5 +1,6 @@
 import { mockPosts, mockCommentsByPostId as commentsData } from './mock';
 import { mockUsers } from './userData';
+import { calculateExpiryDate } from './pricingPackages';
 
 // --- 1. Tạo danh sách tác giả (User Pool) ---
 // const mockUsers = [
@@ -791,6 +792,18 @@ export const mockPostDetails = mockPosts.map((post) => {
   // Lấy dữ liệu chi tiết và tác giả tương ứng
   const detail = detailedData[post.id];
   
+  // Assign random package type for "sell" posts (posts with category)
+  // For "buy" posts (without price info), packageType should not be assigned
+  let packageType = 'BASIC'; // Default to BASIC
+  const isRandomPremium = Math.random() < 0.3; // 30% chance of PREMIUM
+  const isRandomFree = Math.random() < 0.2; // 20% chance of FREE
+  
+  if (isRandomPremium) {
+    packageType = 'PREMIUM';
+  } else if (isRandomFree) {
+    packageType = 'FREE';
+  }
+  
   if (!detail) {
     console.warn(`Không tìm thấy chi tiết cho post ID: ${post.id}`);
     return {
@@ -807,12 +820,18 @@ export const mockPostDetails = mockPosts.map((post) => {
       comments: 0,
       likedBy: [],
       savedBy: [],
+      packageType: undefined, // "Buy" posts không có gói
+      expiresAt: null,
     };
   }
 
   const author = mockUsers.find(u => u.id === detail.authorId);
   const commentsList = commentsData[post.id] || [];
-  const finalAuthor = author || mockUsers[0]; 
+  const finalAuthor = author || mockUsers[0];
+  
+  // Calculate expiry date based on package type
+  const createdAtDate = new Date();
+  const expiresAt = calculateExpiryDate(createdAtDate, packageType);
 
   return {
     ...post,
@@ -827,7 +846,11 @@ export const mockPostDetails = mockPosts.map((post) => {
     images: detail.images, // ✅ Dùng mảng ảnh chi tiết (đã có nhiều ảnh)
     comments: commentsList.length, 
     likedBy: [], 
-    savedBy: [], 
+    savedBy: [],
+    // ✅ Thêm thông tin gói pricing
+    packageType: packageType, // FREE, BASIC, PREMIUM
+    expiresAt: expiresAt, // Ngày hết hạn (null nếu PREMIUM)
+    purchasePostCategories: detail.purchasePostCategories || [], // Danh mục "Cần mua" cho PREMIUM (để empty array mặc định)
   };
 });
 

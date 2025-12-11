@@ -15,7 +15,9 @@ export default function AdminPendingPosts({ onViewDetail }) {
 
     const handleApprove = (postId) => {
         if (window.confirm('Bạn có chắc chắn muốn duyệt bài đăng này?')) {
-            approvePost(postId);
+            // ✅ Truyền addNotification callback vào approvePost
+            // approvePost sẽ tự động gửi notification đến PREMIUM post buyers
+            approvePost(postId, addNotification);
             // Gửi thông báo cho chủ bài đăng khi bài được duyệt
             const post = posts.find(p => String(p.id) === String(postId));
             if (post && post.authorId && addNotification) {

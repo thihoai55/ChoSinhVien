@@ -319,6 +319,13 @@ export default function Header({ onNavigate, onSearch, showToast }) {
                     return;
                   }
 
+                  // Premium post match notification -> go to the seller's post detail
+                  if (n.type === 'premium_post_match' && n.sellPostId) {
+                    markAsRead?.(n.id);
+                    onNavigate('post-detail', n.sellPostId);
+                    return;
+                  }
+
                   // Other post-related notifications: open post detail (approved, comment, etc.)
                   if (n.postId) {
                     if (n.commentId && typeof window !== 'undefined') {
@@ -329,6 +336,7 @@ export default function Header({ onNavigate, onSearch, showToast }) {
                         );
                       } catch {}
                     }
+                    markAsRead?.(n.id);
                     onNavigate('post-detail', n.postId)
                   }
                 }}

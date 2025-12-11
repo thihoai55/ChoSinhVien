@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { mockPostDetails, mockCommentsByPostId } from "../data/mockDetail";
+import { isPostExpired, shouldAutoDeleteOnExpiry } from "../data/pricingPackages";
 
 const PostContext = createContext();
 
@@ -219,13 +220,65 @@ export function PostProvider({ children }) {
         ));
     };
 
+    // Helper: normalize package id từ các trường khác nhau
+    const getNormalizedPackageId = (post) => {
+        if (!post) return null;
+        const raw = post.package || post.packageType || post.pkg || null;
+        if (!raw) return null;
+        try {
+            return String(raw).toUpperCase();
+        } catch (e) {
+            return null;
+        }
+    };
+
     // Hàm duyệt bài đăng (chỉ dành cho admin)
     // Khi duyệt: bài đăng chuyển sang tab "Đang bán" trong giao diện user
-    const approvePost = (postId) => {
+    // Nếu là PREMIUM → gửi notification đến người mua có danh mục giống
+    const approvePost = (postId, addNotificationCallback = null) => {
+        const postToApprove = posts.find(p => String(p.id) === String(postId));
+        
         setPosts((prev) => prev.map((p) => String(p.id) === String(postId)
             ? { ...p, status: 'approved', approvedAt: new Date().toISOString() }
             : p
         ));
+
+        // 🎯 Nếu là PREMIUM post → gửi notification đến người "cần mua" có danh mục giống
+        if (postToApprove && addNotificationCallback && typeof addNotificationCallback === 'function') {
+            const pkgId = getNormalizedPackageId(postToApprove);
+            if (pkgId === 'PREMIUM' && postToApprove.category) {
+                try {
+                    // Tìm tất cả bài "cần mua" có danh mục giống
+                    const matchingBuyerPosts = posts.filter(post => {
+                        const isBuyPost = post.type === 'buy' || (!getNormalizedPackageId(post) && (post.status === undefined || post.status === null));
+                        const categoryMatches = postToApprove.category && post.category && 
+                                             postToApprove.category.toLowerCase() === post.category.toLowerCase();
+                        return isBuyPost && categoryMatches;
+                    });
+
+                    // Gửi notification đến từng chủ bài "cần mua" phù hợp
+                    matchingBuyerPosts.forEach(buyerPost => {
+                        if (buyerPost.authorId) {
+                            addNotificationCallback(buyerPost.authorId, {
+                                type: 'premium_post_match',
+                                sellPostId: postId,
+                                buyPostId: buyerPost.id,
+                                message: `✨ Có bài đăng Premium mới phù hợp với danh mục "${postToApprove.category}": "${postToApprove.title}"`,
+                                sellPostTitle: postToApprove.title,
+                                sellPostPrice: postToApprove.price,
+                                sellPostCategory: postToApprove.category,
+                                sellerName: postToApprove.authorName || postToApprove.author,
+                                sellerAvatar: postToApprove.authorAvatar,
+                            });
+                        }
+                    });
+
+                    console.log(`✅ Đã gửi notification đến ${matchingBuyerPosts.length} người mua có danh mục phù hợp`);
+                } catch (error) {
+                    console.error('Error sending buyer notifications:', error);
+                }
+            }
+        }
     };
 
     // Hàm từ chối bài đăng (chỉ dành cho admin)
@@ -326,15 +379,45 @@ export function PostProvider({ children }) {
         }));
     };
 
+    // Tự động xóa bài đăng hết hạn (FREE sau 1 ngày, BASIC sau 7 ngày)
+    // PREMIUM không bao giờ tự động xóa
+    useEffect(() => {
+        const postsToDelete = [];
+        
+        posts.forEach((post) => {
+            // Chỉ check expiry cho bài "cần bán" (có packageType)
+            if (post.packageType && post.expiresAt) {
+                const isExpired = isPostExpired(post.packageType, post.expiresAt);
+                const shouldAutoDelete = shouldAutoDeleteOnExpiry(post.packageType);
+                
+                if (isExpired && shouldAutoDelete) {
+                    postsToDelete.push(post.id);
+                }
+            }
+        });
+        
+        if (postsToDelete.length > 0) {
+            setPosts((prev) => prev.filter((p) => !postsToDelete.includes(p.id)));
+            // Xóa comments của các bài đăng đã xóa
+            setComments((prev) => {
+                const newComments = { ...prev };
+                postsToDelete.forEach((postId) => {
+                    delete newComments[postId];
+                });
+                return newComments;
+            });
+            console.log(`Đã tự động xóa ${postsToDelete.length} bài đăng hết hạn`);
+        }
+    }, [posts]);
+
     // Tự động xóa bài đăng đã bán sau 2 ngày
     useEffect(() => {
-        const now = new Date();
         const postsToDelete = [];
         
         posts.forEach((post) => {
             if (post.sold && post.soldTimestamp) {
                 const soldDate = new Date(post.soldTimestamp);
-                const diffTime = now - soldDate;
+                const diffTime = new Date() - soldDate;
                 const diffDays = diffTime / (1000 * 60 * 60 * 24);
                 
                 if (diffDays >= 2) {
@@ -381,6 +464,38 @@ export function PostProvider({ children }) {
         return (sum / sellerRatings.length).toFixed(1);
     };
 
+    // Tìm bài "cần mua" phù hợp với bài "cần bán" PREMIUM
+    // Nếu một bài "cần bán" là PREMIUM, hệ thống sẽ tìm tất cả bài "cần mua" có danh mục giống
+    // và gửi notification đến người sở hữu những bài "cần mua" đó
+    const findMatchingBuyerPosts = (sellPostId) => {
+        const sellPost = posts.find(p => String(p.id) === String(sellPostId));
+        
+        // Chỉ áp dụng cho PREMIUM posts
+        if (!sellPost || sellPost.packageType !== 'PREMIUM') {
+            return [];
+        }
+        
+        // Tìm bài "cần mua" có danh mục giống
+        const matchingBuyerPosts = posts.filter(post => {
+            // Post "cần mua" là những post không có packageType (status undefined)
+            const isBuyPost = post.status === undefined && !post.packageType;
+            // Kiểm tra category giống
+            const categoryMatches = sellPost.category && post.category && 
+                                   sellPost.category.toLowerCase() === post.category.toLowerCase();
+            
+            return isBuyPost && categoryMatches;
+        });
+        
+        return matchingBuyerPosts;
+    };
+
+    // Gửi notification đến người sở hữu bài "cần mua" phù hợp
+    // Đây là hàm helper, thực tế notification sẽ được gửi qua NotificationContext
+    const getMatchingBuyerIds = (sellPostId) => {
+        const matchingPosts = findMatchingBuyerPosts(sellPostId);
+        return [...new Set(matchingPosts.map(p => p.authorId))];
+    };
+
     return (
         // --- SỬA LỖI NGHIÊM TRỌNG: Phải là PostContext.Provider ---
         <PostContext.Provider
@@ -411,6 +526,8 @@ export function PostProvider({ children }) {
                 addRating,
                 getSellerRatings,
                 getSellerAverageRating,
+                findMatchingBuyerPosts,
+                getMatchingBuyerIds,
             }}
         >
             {children}

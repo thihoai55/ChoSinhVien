@@ -26,7 +26,7 @@ const categories = [
 
 export default function CreatePostPage({ onNavigate, hiddenPostData }) {
   const { user } = useAuth()
-  const { addPost, deletePost } = usePosts?.() || {}
+  const { addPost, deletePost, findMatchingBuyerPosts } = usePosts?.() || {}
   const { balance, pay } = useWallet()
   const { addNotification } = useNotifications()
 
@@ -220,6 +220,17 @@ export default function CreatePostPage({ onNavigate, hiddenPostData }) {
             fromUserId: user.id,
             message: `Có bài đăng mới cần duyệt: "${newPost.title}" từ ${user.name}`,
           });
+        }
+
+        // 🎯 THÊM: Nếu là bài PREMIUM, gửi notification đến buyers có category giống
+        // (Khi bài được duyệt thì mới hiệu lực, nhưng ta có thể chuẩn bị sẵn)
+        if (postType === 'sell' && selectedPackage === 'premium' && selectedCategory !== 'Tất cả') {
+          try {
+            // Note: Khi bài mới tạo thì status='pending', nên nó sẽ chỉ gửi notification khi admin duyệt
+            // Nhưng ta có thể thêm notification sau khi duyệt trong AdminPostDetail.jsx
+          } catch (error) {
+            console.error('Error preparing buyer notifications:', error);
+          }
         }
 
         // Nếu đăng lại từ bài đăng đã ẩn, xóa bài đăng cũ
